@@ -1,9 +1,12 @@
 [package]
-name = "example-basis"
+name = "sg-sdk-inner"
 version = "0.0.1"
 edition = "2021"
-repository = "git@github.com:ServerlessGuide/sg-sdk-temp/examples/basis.git"
-description = "example basis fn"
+repository = "git@github.com:ServerlessGuide/sg-sdk-temp/sg-sdk-inner.git"
+description = "sg sdk"
+
+[lib]
+name = "sg_sdk_inner"
 
 [dependencies]
 hyper = { version = "1", features = ["full"] }
@@ -12,38 +15,38 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0" }
 validator = { version = "0.16" }
 validator_derive = { version = "0.16" }
-# chrono = { version = "0.4", features = ["serde"] }
-# regex = { version = "1.6" }
+chrono = { version = "0.4", features = ["serde"] }
+regex = { version = "1.6" }
 lazy_static = { version = "1.4" }
 bevy_reflect = { version = "0.12" }
-# async-trait = { version = "0.1" }
+async-trait = { version = "0.1" }
 pipe-trait = { version = "0.4" }
 model_macro = { version = "0.2" }
 model_macro_derive = { version = "0.2" }
-# dapr = { git = "https://github.com/TaurusM/dapr-rust-sdk.git", branch = "main" }
-# downcast-rs = { version = "1.2" }
+dapr = { git = "https://github.com/TaurusM/dapr-rust-sdk.git", branch = "main" }
+downcast-rs = { version = "1.2" }
 prost-types = { git = "https://github.com/TaurusM/prost.git", branch = "main", package = "prost-types" }
 prost = { git = "https://github.com/TaurusM/prost.git", branch = "main" }
-# tonic = { git = "https://github.com/TaurusM/tonic.git", branch = "main" }
-# futures-util = { version = "0.3", features = ["sink", "std"] }
+tonic = { git = "https://github.com/TaurusM/tonic.git", branch = "main" }
+futures-util = { version = "0.3", features = ["sink", "std"] }
 rbs = { git = "https://github.com/TaurusM/rbatis.git", branch = "main", package = "rbs" }
 rbatis = { git = "https://github.com/TaurusM/rbatis.git", branch = "main" }
 rbatis-macro-driver = { git = "https://github.com/TaurusM/rbatis.git", branch = "main", package = "rbatis-macro-driver" }
-# sqlparser = { version = "0.40" }
+sqlparser = { version = "0.40" }
+base64 = { version = "0.21" }
+hex = { version = "0.4" }
+hex-literal = { version = "0.4" }
 async_once = { version = "0.2" }
-# hyper-util = { version = "0.1", features = ["tokio"] }
+hyper-util = { version = "0.1", features = ["tokio"] }
 http-body-util = { version = "0.1" }
-# http-body = { version = "1" }
+http-body = { version = "1" }
 tracing = { version = "0.1", features = ["attributes"] }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-# mime = { version = "0.3.17" }
-# multer = { version = "3.0.0" }
-# tokio-util = { version = "0.7" }
-sg-sdk-temp = { path = "../../sg-sdk-temp" }
+mime = { version = "0.3.17" }
+multer = { version = "3.0.0" }
+tokio-util = { version = "0.7" }
+quote = "1"
 
-base64 = { version = "0.21" }
-# hex = { version = "0.4" }
-hex-literal = { version = "0.4" }
 
 [profile.release]
 panic = "abort"
