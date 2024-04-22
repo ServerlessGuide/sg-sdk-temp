@@ -1,6 +1,6 @@
 use crate::{
-    body, config::*, daprs::*, model::*, GrpcResult, HttpResult, BIZ_RESULT_MAP, DAPR_CONFIG, INCOME_PARAM_MAP, INTERNAL_AUTH_TAG, SKIP_AUTH_IFS, URIS,
-    URI_REGEX_MAP,
+    body, config::*, daprs::*, model::*, GrpcResult, HttpResult, BIZ_RESULT_MAP, BIZ_RESULT_PREFIX, DAPR_CONFIG, INCOME_PARAM_MAP, INTERNAL_AUTH_TAG,
+    SKIP_AUTH_IFS, URIS, URI_REGEX_MAP,
 };
 use chrono::{DateTime, Local};
 use dapr::{
@@ -98,7 +98,7 @@ impl ResponseError {
     }
 }
 
-pub fn err_resolve(err: Box<dyn std::error::Error + Send + Sync>) -> Response<body::Body> {
+pub async fn err_resolve(err: Box<dyn std::error::Error + Send + Sync>) -> Response<body::Body> {
     debug!(
         "============================handle finish with error============================\nend time: {}\n{:#?}",
         utc_timestamp(),
@@ -112,7 +112,7 @@ pub fn err_resolve(err: Box<dyn std::error::Error + Send + Sync>) -> Response<bo
             respnse_err = err.downcast_ref::<Box<ResponseError>>().unwrap();
         }
         let biz_res_name = respnse_err.biz_res.to_owned();
-        let biz_res = BizResult::from(biz_res_name);
+        let biz_res = BizResult::from(biz_res_name).await;
         if let Err(err) = biz_res {
             if err.is::<ResponseError>() {
                 return gen_resp(
@@ -195,12 +195,12 @@ pub fn gen_resp_err<'a>(biz_res: BizResult<'static>, message: Option<String>) ->
     }
 }
 
-pub fn gen_resp_ok<T: Serialize>(biz_res: BizResult<'static>, result: T, params: &Params) -> Response<body::Body> {
+pub async fn gen_resp_ok<T: Serialize>(biz_res: BizResult<'static>, result: T, params: &Params) -> Response<body::Body> {
     let mut response_builder = Response::builder();
 
     response_builder = response_builder.header(header::CONTENT_TYPE, HeaderValue::from_str("application/json").unwrap());
 
-    let token_pair = find_response_auth_header(params).unwrap();
+    let token_pair = find_response_auth_header(params).await.unwrap();
 
     match token_pair.0 {
         None => {}
@@ -263,18 +263,40 @@ impl URI {
     }
 }
 
+pub async fn insert_uri(uri: URI) -> HttpResult<()> {
+    let mut uris = URIS.write().await;
+    match uris.insert(uri.name().to_string(), uri.clone()) {
+        None => {}
+        Some(_) => {
+            return Err(Box::new(ResponseError {
+                biz_res: format!("uri is exist: {}", uri.name()),
+                message: None,
+            }));
+        }
+    };
+
+    let mut uri_regex_map = URI_REGEX_MAP.write().await;
+    uri_regex_map.insert(uri.clone(), regex::Regex::new(uri.path())?);
+
+    Ok(())
+}
+
 #[macro_export]
 macro_rules! uri {
     (
         $(
-            ($konst:ident, $method:expr, $path:expr, $name:expr, $action:expr, $bulk_input:expr, $bulk_output:expr);
+            ($konst:ident, $method:expr, $path:expr, $action:expr, $bulk_input:expr, $bulk_output:expr);
         )*
     ) => {
         impl URI {
             $(
-                pub const $konst: URI = URI($method, $path, $name, $action, $bulk_input, $bulk_output);
+                pub const $konst: URI = URI($method, $path, stringify!($konst), $action, $bulk_input, $bulk_output);
             )*
         }
+
+        $(
+            let _ = crate::util::insert_uri(crate::util::URI::$konst).await;
+        )*
     }
 }
 
@@ -298,8 +320,9 @@ impl BizResult<'static> {
         self.3.to_string()
     }
 
-    pub fn from(item: String) -> HttpResult<Self> {
-        let res = BIZ_RESULT_MAP.get(&item);
+    pub async fn from(item: String) -> HttpResult<Self> {
+        let biz_result_map = BIZ_RESULT_MAP.read().await;
+        let res = biz_result_map.get(&item);
         let Some(res) = res else {
             return Err(Box::new(gen_resp_err(BizResult::BIZ_RESULT_NOT_FOUND, None)));
         };
@@ -307,12 +330,24 @@ impl BizResult<'static> {
     }
 }
 
-fn insert_biz_result_method(biz_res: BizResult) -> HttpResult<()> {
-    match BIZ_RESULT_MAP.insert(biz_res.name(), biz_res) {
+pub async fn insert_biz_result(mut biz_res: BizResult<'static>) -> HttpResult<()> {
+    if biz_res.biz_code() <= 39 || biz_res.biz_code() >= 10000 {
+        return Err(Box::new(ResponseError {
+            biz_res: String::from("biz result code should between 40 and 9999"),
+            message: None,
+        }));
+    }
+
+    let biz_code_prefix = crate::BIZ_RESULT_PREFIX.read().await;
+    let new_biz_code: i32 = format!("{}{:02}", *biz_code_prefix, biz_res.biz_code()).parse()?;
+    biz_res.1 = new_biz_code;
+
+    let mut biz_result_map = BIZ_RESULT_MAP.write().await;
+    match biz_result_map.insert(biz_res.name(), biz_res) {
         None => {}
         Some(_) => {
             return Err(Box::new(ResponseError {
-                biz_res: String::from("biz result is exist"),
+                biz_res: format!("biz result is exist: {}", biz_res.name()),
                 message: None,
             }));
         }
@@ -321,33 +356,122 @@ fn insert_biz_result_method(biz_res: BizResult) -> HttpResult<()> {
 }
 
 #[macro_export]
-macro_rules! insert_biz_result {
-    ($arg:expr) => {{
-        $crate::util::insert_biz_result_method($crate::util::BizResult::$arg);
-    }};
-}
-
-#[macro_export]
 macro_rules! biz_result {
     (
         $(
-            ($konst:ident, $status_code:expr, $biz_code:expr, $message:expr, $name:expr);
+            ($konst:ident, $status_code:expr, $biz_code:expr, $message:expr);
         )*
     ) => {
+        let biz_code_prefix = crate::BIZ_RESULT_PREFIX.read().await;
+        if *biz_code_prefix == -1 {
+            panic!("BIZ_RESULT_PREFIX not set, set it by biz_code_prefix!() first");
+        }
+
         impl crate::util::BizResult<'_> {
             $(
-                pub const $konst: crate::util::BizResult<'static> = crate::util::BizResult($status_code, $biz_code, $message, $name);
+                pub const $konst: crate::util::BizResult<'static> = crate::util::BizResult($status_code, $biz_code, $message, stringify!($konst));
             )*
         }
 
         $(
-            crate::insert_biz_result!($konst);
+            let _ = crate::util::insert_biz_result(crate::util::BizResult::$konst).await;
         )*
     }
 }
 
-pub fn uri_match(req_path: &str, req_method: Method) -> HttpResult<URI> {
-    for (uri, regex) in URI_REGEX_MAP.iter() {
+pub async fn insert_income_param(uri: URI, params: Vec<(String, String, ParamFrom, ParamType, bool)>) -> HttpResult<()> {
+    let mut interface_params = HashMap::<String, IncomeParamDef>::new();
+
+    for (target, name, from, param_type, required) in params {
+        interface_params.insert(
+            target,
+            IncomeParamDef {
+                name: name,
+                from: from,
+                param_type: param_type,
+                required: required,
+            },
+        );
+    }
+
+    let mut income_param_map = INCOME_PARAM_MAP.write().await;
+
+    match income_param_map.insert(uri.name().to_string(), ExtraParamMap { params: interface_params }) {
+        None => {}
+        Some(_) => {
+            return Err(Box::new(ResponseError {
+                biz_res: format!("income param of uri '{}' is exist", uri.name()),
+                message: None,
+            }));
+        }
+    };
+
+    Ok(())
+}
+
+#[macro_export]
+macro_rules! income_param {
+    (
+        $(
+            ($konst:ident,[$(($target:ident,$name:expr,$from:ident,$type:ident,$require:expr)$(,)?)*]);
+        )*
+    ) => {
+        $(
+            let _ = crate::util::insert_income_param(crate::util::URI::$konst, vec![$((String::from(stringify!($target)),String::from(stringify!($name)),crate::model::ParamFrom::$from,crate::model::ParamType::$type,$require),)*]).await;
+        )*
+    }
+}
+
+pub async fn set_biz_code_prefix(biz_code_prefix: i16) -> HttpResult<()> {
+    if biz_code_prefix == -1 {
+        return Err(Box::new(ResponseError {
+            biz_res: String::from("biz code prefix can not be -1"),
+            message: None,
+        }));
+    }
+
+    if biz_code_prefix >= 9800 && biz_code_prefix <= 9999 {
+        return Err(Box::new(ResponseError {
+            biz_res: String::from("biz code prefix can not between 9800 and 9999"),
+            message: None,
+        }));
+    }
+
+    *BIZ_RESULT_PREFIX.write().await = biz_code_prefix;
+    Ok(())
+}
+
+#[macro_export]
+macro_rules! biz_code_prefix {
+    ($num:expr) => {
+        let _ = crate::util::set_biz_code_prefix($num).await;
+    };
+}
+
+pub async fn set_internal_auth_tag(tag: &str) -> HttpResult<()> {
+    *INTERNAL_AUTH_TAG.write().await = match tag.is_empty() {
+        true => {
+            return Err(Box::new(ResponseError {
+                biz_res: String::from("internal auth tag can not be empty"),
+                message: None,
+            }));
+        }
+        false => Some(tag.to_string()),
+    };
+
+    Ok(())
+}
+
+#[macro_export]
+macro_rules! internal_auth_tag {
+    ($tag:expr) => {
+        let _ = crate::util::set_internal_auth_tag($tag).await;
+    };
+}
+
+pub async fn uri_match(req_path: &str, req_method: Method) -> HttpResult<URI> {
+    let uri_regex_map = URI_REGEX_MAP.read().await;
+    for (uri, regex) in uri_regex_map.iter() {
         if regex.is_match(req_path) && uri.method() == req_method {
             return Ok(uri.to_owned());
         }
@@ -373,7 +497,7 @@ pub async fn parse_params_grpc(req: tonic::Request<InvokeRequest>) -> GrpcResult
 
     let path = &r.method;
 
-    let uri = uri_match(path, http_method);
+    let uri = uri_match(path, http_method).await;
     let Ok(uri) = uri else {
         return Err(Status::failed_precondition("uri not match."));
     };
@@ -423,7 +547,7 @@ pub async fn parse_params_grpc(req: tonic::Request<InvokeRequest>) -> GrpcResult
 }
 
 pub async fn parse_params(req: Request<Incoming>) -> HttpResult<Params> {
-    let uri = uri_match(req.uri().path(), req.method().to_owned())?;
+    let uri = uri_match(req.uri().path(), req.method().to_owned()).await?;
 
     let mut headers = HashMap::<String, String>::new();
     for (k, v) in req.headers().into_iter() {
@@ -483,19 +607,6 @@ pub async fn parse_params(req: Request<Incoming>) -> HttpResult<Params> {
     );
 
     Ok(params)
-}
-
-pub fn find_regex(uris: Vec<URI>) -> HttpResult<HashMap<URI, regex::Regex>> {
-    let mut map = HashMap::<URI, regex::Regex>::new();
-    for uri in uris {
-        let refex = regex::Regex::new(&uri.path());
-        if let Err(err) = refex {
-            panic!("init regex error: {}", err.to_string());
-        }
-        map.insert(uri, refex.unwrap());
-    }
-
-    Ok(map)
 }
 
 fn de_bytes_slice<T: for<'de> Deserialize<'de>>(bytes: &[u8]) -> HttpResult<T> {
@@ -599,7 +710,7 @@ pub fn set_input_param<I: for<'de> Deserialize<'de> + ModelTrait + prost::Messag
     Ok(())
 }
 
-pub fn params_to_model<
+pub async fn params_to_model<
     I: for<'de> Deserialize<'de> + ModelTrait + prost::Message + Default + Serialize,
     O: for<'de> Deserialize<'de> + ModelTrait + prost::Message,
     C,
@@ -607,7 +718,8 @@ pub fn params_to_model<
     params: &Params,
 ) -> HttpResult<ContextWrapper<I, O, C>> {
     let mut income_param_exist = true;
-    let param_map = INCOME_PARAM_MAP.get(&params.uri);
+    let param_map = INCOME_PARAM_MAP.read().await;
+    let param_map = param_map.get(&params.uri);
     if let None = param_map {
         income_param_exist = false;
     }
@@ -741,10 +853,11 @@ pub fn utc_timestamp() -> DateTime<Local> {
     Local::now()
 }
 
-pub fn res<I: ModelTrait + Default + prost::Message, O: ModelTrait + Validator + prost::Message + std::default::Default, C>(
+pub async fn res<I: ModelTrait + Default + prost::Message, O: ModelTrait + Validator + prost::Message + std::default::Default, C>(
     context: ContextWrapper<I, O, C>,
 ) -> HttpResult<IfRes<O>> {
-    let uri = URIS.get(&context.uri_name).unwrap();
+    let uris = URIS.read().await;
+    let uri = uris.get(&context.uri_name).unwrap();
 
     let mut if_res: IfRes<O> = Default::default();
     if_res.saga_id = context.saga_id;
@@ -1570,19 +1683,21 @@ fn de_paramize(
     Ok(new_values)
 }
 
-pub fn find_response_auth_header(params: &Params) -> HttpResult<(Option<String>, Option<String>)> {
+pub async fn find_response_auth_header(params: &Params) -> HttpResult<(Option<String>, Option<String>)> {
     if SKIP_AUTH_IFS.contains(&params.uri) {
         return Ok((None, None));
     }
 
-    if let None = INTERNAL_AUTH_TAG.as_ref() {
+    let tag = INTERNAL_AUTH_TAG.read().await;
+
+    if let None = *tag {
         return Err(Box::new(gen_resp_err(BizResult::INTERNAL_AUTH_TAG_NOT_SET, None)));
     }
 
     if params.header.contains_key(AuthHeader::XSGAuthInternal.lower_case_value()) {
-        return Ok((Some(INTERNAL_AUTH_TAG.clone().unwrap()), Some(INTERNAL_AUTH_TAG.clone().unwrap())));
+        return Ok((Some(tag.clone().unwrap()), Some(tag.clone().unwrap())));
     } else if params.header.contains_key(AuthHeader::XSGAuthInternal.upper_case_value()) {
-        return Ok((Some(INTERNAL_AUTH_TAG.clone().unwrap()), Some(INTERNAL_AUTH_TAG.clone().unwrap())));
+        return Ok((Some(tag.clone().unwrap()), Some(tag.clone().unwrap())));
     } else if params.header.contains_key(AuthHeader::XSGAuthJWT.lower_case_value()) {
         return Ok((
             Some(AuthHeader::XSGAuthJWT.lower_case_value().to_string()),
@@ -1631,7 +1746,9 @@ pub async fn auth_ict(params: &mut Params) -> HttpResult<()> {
         return Ok(());
     }
 
-    if let None = INTERNAL_AUTH_TAG.as_ref() {
+    let setted_tag = INTERNAL_AUTH_TAG.read().await;
+
+    if let None = *setted_tag {
         return Err(Box::new(gen_resp_err(BizResult::INTERNAL_AUTH_TAG_NOT_SET, None)));
     }
 
@@ -1645,7 +1762,7 @@ pub async fn auth_ict(params: &mut Params) -> HttpResult<()> {
                 )));
             }
             Some(tag) => {
-                if INTERNAL_AUTH_TAG.as_ref().unwrap().ne(tag) {
+                if setted_tag.as_ref().unwrap().ne(tag) {
                     return Err(Box::new(gen_resp_err(BizResult::AUTH_ERROR, Some(String::from("internal auth fail")))));
                 } else {
                     return Ok(());
@@ -1662,7 +1779,7 @@ pub async fn auth_ict(params: &mut Params) -> HttpResult<()> {
                 )));
             }
             Some(tag) => {
-                if INTERNAL_AUTH_TAG.as_ref().unwrap().ne(tag) {
+                if setted_tag.as_ref().unwrap().ne(tag) {
                     return Err(Box::new(gen_resp_err(BizResult::AUTH_ERROR, Some(String::from("internal auth fail")))));
                 } else {
                     return Ok(());
@@ -1729,8 +1846,6 @@ pub async fn auth_ict(params: &mut Params) -> HttpResult<()> {
             Some(String::from("at least one auth type needed")),
         )));
     }
-
-    Ok(())
 }
 
 async fn auth(token: &String) -> HttpResult<String> {
@@ -1751,9 +1866,10 @@ async fn auth(token: &String) -> HttpResult<String> {
         type_url: "".to_string(),
         value: serde_json::json!(data).to_string().as_bytes().to_vec(),
     });
+    let setted_tag = INTERNAL_AUTH_TAG.read().await;
     message.headers.insert(
         AuthHeader::XSGAuthInternal.upper_case_value().to_string(),
-        INTERNAL_AUTH_TAG
+        setted_tag
             .as_ref()
             .ok_or(gen_resp_err(BizResult::AUTH_ERROR, Some(String::from("internal auth tag value not found"))))?
             .to_string(),

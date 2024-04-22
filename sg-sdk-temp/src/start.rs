@@ -81,21 +81,20 @@ async fn http_service(req: Request<Incoming>) -> HttpResult<Response<body::Body>
     let mut params = match params {
         Ok(params) => params,
         Err(err) => {
-            return Ok(util::err_resolve(err));
+            return Ok(util::err_resolve(err).await);
         }
     };
 
     match auth_ict(&mut params).await {
         Ok(_) => {}
         Err(err) => {
-            return Ok(util::err_resolve(err));
+            return Ok(util::err_resolve(err).await);
         }
     };
 
     match params.uri.as_str() {
-        "QUERY_ALL_SMS" => handle_http(query_all_sms(&params).await, &params),
-        "QUERY_ONE_BY_ID" => handle_http(query_one_by_id(&params).await, &params),
-
+        // "QUERY_ALL_SMS" => handle_http(query_all_sms(&params).await, &params),
+        // "QUERY_ONE_BY_ID" => handle_http(query_one_by_id(&params).await, &params),
         _ => {
             eprintln!("[request begin] error: uri match nothing");
             Ok(util::gen_resp(
@@ -133,9 +132,8 @@ impl AppCallback for GrpcService {
         };
 
         match params.uri.as_str() {
-            "QUERY_ALL_SMS" => handle_grpc(query_all_sms(&params).await, &params),
-            "QUERY_ONE_BY_ID" => handle_grpc(query_one_by_id(&params).await, &params),
-
+            // "QUERY_ALL_SMS" => handle_grpc(query_all_sms(&params).await, &params),
+            // "QUERY_ONE_BY_ID" => handle_grpc(query_one_by_id(&params).await, &params),
             _ => {
                 eprintln!("request error: uri match nothing");
                 return GrpcResult::Err(Status::internal(BizResult::URI_NOT_MATCH.message()));
@@ -161,14 +159,17 @@ impl AppCallback for GrpcService {
     }
 }
 
-fn handle_http<T: Serialize + prost::Message + ModelTrait + Default>(http_res: HttpResult<IfRes<T>>, params: &Params) -> HttpResult<Response<body::Body>> {
+async fn handle_http<T: Serialize + prost::Message + ModelTrait + Default>(
+    http_res: HttpResult<IfRes<T>>,
+    params: &Params,
+) -> HttpResult<Response<body::Body>> {
     match http_res {
-        Ok(if_res) => Ok(util::gen_resp_ok(BizResult::OK, if_res, &params)),
-        Err(err) => Ok(util::err_resolve(err)),
+        Ok(if_res) => Ok(util::gen_resp_ok(BizResult::OK, if_res, &params).await),
+        Err(err) => Ok(util::err_resolve(err).await),
     }
 }
 
-fn handle_grpc<T: prost::Message + ModelTrait + Default>(http_res: HttpResult<IfRes<T>>, params: &Params) -> GrpcResult<tonic::Response<InvokeResponse>> {
+async fn handle_grpc<T: prost::Message + ModelTrait + Default>(http_res: HttpResult<IfRes<T>>, params: &Params) -> GrpcResult<tonic::Response<InvokeResponse>> {
     match http_res {
         Ok(if_res) => {
             let mut response = tonic::Response::new(InvokeResponse {
@@ -179,7 +180,7 @@ fn handle_grpc<T: prost::Message + ModelTrait + Default>(http_res: HttpResult<If
                 }),
                 headers: HashMap::<String, String>::new(),
             });
-            let token_pair = find_response_auth_header(params).unwrap();
+            let token_pair = find_response_auth_header(params).await.unwrap();
             match token_pair.0 {
                 None => {}
                 Some(key) => match token_pair.1 {

@@ -5,6 +5,9 @@ edition = "2021"
 repository = "git@github.com:ServerlessGuide/sg-sdk-temp/sg-sdk-temp.git"
 description = "sg sdk"
 
+[lib]
+name = "sg_sdk_temp"
+
 [dependencies]
 hyper = { version = "1", features = ["full"] }
 tokio = { version = "1", features = ["full", "macros", "tracing"] }
@@ -42,6 +45,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 mime = { version = "0.3.17" }
 multer = { version = "3.0.0" }
 tokio-util = { version = "0.7" }
+quote = "1"
 
 
 [profile.release]
