@@ -41,7 +41,7 @@ extern crate lazy_static;
 lazy_static! {
     pub static ref SERVICE_ID: i64 = 6999453093112840195;
     pub static ref BIZ_RESULT_PREFIX: RwLock<i16> = RwLock::new(-1);
-    pub static ref SKIP_AUTH_IFS: Vec<String> = vec![];
+    pub static ref SKIP_AUTH_IFS: RwLock<Vec<String>> = RwLock::new(vec![]);
     pub static ref INTERNAL_AUTH_TAG: RwLock<Option<String>> = RwLock::new(None);
     pub static ref URI_REGEX_MAP: RwLock<HashMap<URI, regex::Regex>> = RwLock::new(HashMap::<URI, regex::Regex>::new());
     pub static ref URIS: RwLock<HashMap<String, URI>> = RwLock::new(HashMap::<String, URI>::new());
@@ -157,11 +157,10 @@ pub async fn init() {
     };
 
     // 初始化URI，示例：
-    // use crate::model::Action;
     // uri! {
-    //     (QUERY_BY_APP_ID, hyper::Method::GET, "^/app-version/\\d{19}$", Action::Query, false, true);
-    //     (INSERT, hyper::Method::POST, "^/app-version$", Action::Insert, false, false);
-    //     (ENV_PREPARE, hyper::Method::GET, "^/app-version/\\d{19}/env-prepare$", Action::Function, false, false);
+    //     (QUERY_BY_APP_ID, GET, "^/app-version/\\d{19}$", Query, false, true);
+    //     (INSERT, POST, "^/app-version$", Insert, false, false);
+    //     (ENV_PREPARE, GET, "^/app-version/\\d{19}/env-prepare$", Function, false, false);
     // }
 
     // 初始化URI参数，示例：
@@ -171,4 +170,6 @@ pub async fn init() {
 
     // 设置内部校验tag，不区分大小写，不能为空串
     // internal_auth_tag!("test-tag");
+
+    // skip_auth_uri!(INSERT);
 }

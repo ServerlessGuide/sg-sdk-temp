@@ -285,12 +285,12 @@ pub async fn insert_uri(uri: URI) -> HttpResult<()> {
 macro_rules! uri {
     (
         $(
-            ($konst:ident, $method:expr, $path:expr, $action:expr, $bulk_input:expr, $bulk_output:expr);
+            ($konst:ident, $method:ident, $path:expr, $action:ident, $bulk_input:expr, $bulk_output:expr);
         )*
     ) => {
         impl URI {
             $(
-                pub const $konst: URI = URI($method, $path, stringify!($konst), $action, $bulk_input, $bulk_output);
+                pub const $konst: URI = URI(hyper::Method::$method, $path, stringify!($konst), crate::model::Action::$action, $bulk_input, $bulk_output);
             )*
         }
 
@@ -466,6 +466,23 @@ pub async fn set_internal_auth_tag(tag: &str) -> HttpResult<()> {
 macro_rules! internal_auth_tag {
     ($tag:expr) => {
         let _ = crate::util::set_internal_auth_tag($tag).await;
+    };
+}
+
+pub async fn set_skip_auth_uri(uri: URI) -> HttpResult<()> {
+    let mut skip_ifs = SKIP_AUTH_IFS.write().await;
+
+    skip_ifs.push(uri.name().to_string());
+
+    Ok(())
+}
+
+#[macro_export]
+macro_rules! skip_auth_uri {
+    ($($target:ident$(,)?)*) => {
+        $(
+            let _ = crate::util::set_skip_auth_uri(crate::util::URI::$target).await;
+        )*
     };
 }
 
@@ -1684,7 +1701,8 @@ fn de_paramize(
 }
 
 pub async fn find_response_auth_header(params: &Params) -> HttpResult<(Option<String>, Option<String>)> {
-    if SKIP_AUTH_IFS.contains(&params.uri) {
+    let skip_ifs = SKIP_AUTH_IFS.read().await;
+    if skip_ifs.contains(&params.uri) {
         return Ok((None, None));
     }
 
@@ -1742,7 +1760,8 @@ pub async fn find_response_auth_header(params: &Params) -> HttpResult<(Option<St
 }
 
 pub async fn auth_ict(params: &mut Params) -> HttpResult<()> {
-    if SKIP_AUTH_IFS.contains(&params.uri) {
+    let skip_ifs = SKIP_AUTH_IFS.read().await;
+    if skip_ifs.contains(&params.uri) {
         return Ok(());
     }
 

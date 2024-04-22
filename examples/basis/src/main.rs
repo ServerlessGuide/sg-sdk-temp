@@ -7,13 +7,15 @@ use biz_model::*;
 use config::*;
 use model_macro::ModelTrait;
 use pipe_trait::*;
+use sg_sdk_temp::config::*;
+use sg_sdk_temp::daprs::*;
+use sg_sdk_temp::envs::*;
+use sg_sdk_temp::log::*;
+use sg_sdk_temp::model::*;
+use sg_sdk_temp::start::*;
+use sg_sdk_temp::util::*;
 use sg_sdk_temp::*;
 use tracing::{debug, error, info, trace, warn};
-
-use crate::log::*;
-use crate::model::*;
-use crate::start::*;
-use crate::util::*;
 
 #[macro_use]
 extern crate lazy_static;
@@ -59,6 +61,7 @@ async fn query_one_by_id(params: &Params) -> HttpResult<IfRes<StorageModelInfo>>
 
 #[tokio::main]
 async fn main() -> HttpResult<()> {
+    init();
     init_log();
 
     // start_http(8080).await
