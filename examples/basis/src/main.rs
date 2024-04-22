@@ -1,10 +1,8 @@
 mod biz;
 mod biz_model;
-mod config;
 
 use biz::*;
 use biz_model::*;
-use config::*;
 use model_macro::ModelTrait;
 use pipe_trait::*;
 use sg_sdk_temp::config::*;
@@ -23,7 +21,8 @@ extern crate rbatis;
 
 async fn query_all_sms(params: &Params) -> HttpResult<IfRes<StorageModelInfo>> {
     params
-        .pipe(util::params_to_model::<DBStorageModel, StorageModelInfo, UserWithIdSid>)?
+        .pipe(util::params_to_model::<DBStorageModel, StorageModelInfo, UserWithIdSid>)
+        .await?
         .pipe(util::validate)?
         .pipe(biz::prepare_inner_context)?
         .pipe(biz::pre_check_user_for_query_all)?
@@ -36,11 +35,13 @@ async fn query_all_sms(params: &Params) -> HttpResult<IfRes<StorageModelInfo>> {
         .pipe(biz::post_query_all_file)
         .await?
         .pipe(util::res)
+        .await
 }
 
 async fn query_one_by_id(params: &Params) -> HttpResult<IfRes<StorageModelInfo>> {
     params
-        .pipe(util::params_to_model::<DBStorageModel, StorageModelInfo, UserWithIdSid>)?
+        .pipe(util::params_to_model::<DBStorageModel, StorageModelInfo, UserWithIdSid>)
+        .await?
         .pipe(util::validate)?
         .pipe(biz::prepare_inner_context)?
         .pipe(biz::pre_check_user_for_query_by_id)?
@@ -57,11 +58,13 @@ async fn query_one_by_id(params: &Params) -> HttpResult<IfRes<StorageModelInfo>>
         .pipe(biz::post_query_one_by_id)
         .await?
         .pipe(util::res)
+        .await
 }
 
 #[tokio::main]
 async fn main() -> HttpResult<()> {
-    init();
+    init().await;
+
     init_log();
 
     // start_http(8080).await
