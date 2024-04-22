@@ -1,69 +1,6 @@
-use std::collections::*;
-use std::fmt::Display;
-use std::str::FromStr;
-
-use bevy_reflect::{GetField, Reflect};
-use model_macro::{ModelTrait, Validator};
-use model_macro_derive::{Model, ModelValidate};
-use rbatis::crud;
-use rbatis::html_sql;
-use rbatis::impl_delete;
-use rbatis::impl_insert;
-use rbatis::impl_select;
-use rbatis::impl_select_page;
-use rbatis::impl_update;
-use rbatis::sql;
-use rbatis::sql::PageRequest;
-use serde::Deserialize;
-use serde::Serialize;
-use tracing::{debug, error, info, trace, warn};
-use validator::Validate;
-use validator_derive::Validate;
-
-use crate::biz::*;
-use crate::config::*;
-use crate::daprs::*;
-use crate::model::*;
-use crate::util::*;
 use crate::*;
 
 lazy_static! {}
-
-mod stringify_on_num {
-    use std::fmt::Display;
-    use std::str::FromStr;
-
-    use serde::{
-        de::{self},
-        Deserialize, Deserializer, Serializer,
-    };
-
-    pub fn serialize<T, S>(value: &Option<T>, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        T: Display,
-        S: Serializer,
-    {
-        match value {
-            None => serializer.serialize_none(),
-            Some(value) => serializer.collect_str(value),
-        }
-    }
-
-    pub fn deserialize<'de, T, D>(deserializer: D) -> Result<Option<T>, D::Error>
-    where
-        T: FromStr,
-        T::Err: Display,
-        D: Deserializer<'de>,
-    {
-        match Option::<String>::deserialize(deserializer)? {
-            None => Ok(None),
-            Some(value) => match value.parse::<T>() {
-                Ok(t) => Ok(Some(t)),
-                Err(err) => Err(de::Error::custom(err.to_string())),
-            },
-        }
-    }
-}
 
 #[derive(PartialEq, Eq, Serialize, Deserialize, Clone, Reflect, Model, Validate, ModelValidate, prost::Message)]
 pub struct DBStorageModel {
@@ -103,6 +40,7 @@ pub struct DBStorageModel {
 
 impl DBStorageModel {
     pub fn enum_convert(f_name: &str, f_value: &str) -> HttpResult<(bool, Option<i32>)> {
+        info!("1111");
         let enum_flds = [].to_vec();
         if enum_flds.contains(&f_name) {
             match f_name {
@@ -606,34 +544,6 @@ impl RelId {
 }
 
 impl DaprBody for RelId {}
-
-mod nullable_to_vec {
-    use serde::{de::DeserializeOwned, Deserialize, Deserializer, Serialize, Serializer};
-
-    pub fn serialize<T, S>(value: &Vec<T>, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        T: Serialize,
-        S: Serializer,
-    {
-        if value.is_empty() {
-            serializer.serialize_none()
-        } else {
-            value.serialize(serializer)
-        }
-    }
-
-    pub fn deserialize<'de, T, D>(deserializer: D) -> Result<Vec<T>, D::Error>
-    where
-        T: DeserializeOwned,
-        D: Deserializer<'de>,
-    {
-        let j = Option::<Vec<T>>::deserialize(deserializer)?;
-        match j {
-            None => Ok(Vec::new()),
-            Some(j_some) => Ok(j_some),
-        }
-    }
-}
 
 #[derive(PartialEq, Eq, Serialize, Deserialize, Clone, Reflect, Model, Validate, ModelValidate, prost::Message)]
 pub struct StorageModelInfo {
