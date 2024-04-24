@@ -68,7 +68,6 @@ async fn main() -> HttpResult<()> {
     // 一定要设置，不设置的话，会使用默认值-1，-1在运行时会报错
     biz_code_prefix!(1024);
     register_biz_result!(DATA_ERROR_1,);
-    init().await?;
 
     // start_http(8080).await
     // start_grpc(8088).await
