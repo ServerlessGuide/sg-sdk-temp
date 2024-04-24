@@ -1,6 +1,5 @@
 use proc_macro::TokenStream;
-use quote::{quote, ToTokens, TokenStreamExt};
-use syn::{parse::discouraged::AnyDelimiter, Token};
+use syn::Token;
 
 #[proc_macro_attribute]
 pub fn uri_handler(args: TokenStream, input: TokenStream) -> TokenStream {
