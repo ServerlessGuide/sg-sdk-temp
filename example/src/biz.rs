@@ -10,10 +10,7 @@ pub fn prepare_inner_context<I: DaprBody + ModelTrait + Default + prost::Message
     } else if let Some(v) = context.header.get(AuthHeader::XSGAuthJWT.lower_case_value()) {
         v.to_string()
     } else {
-        return Err(Box::new(util::gen_resp_err(
-            BizResultInner::DATA_ERROR,
-            Some(String::from("jwt header not found")),
-        )));
+        return Err(Box::new(util::gen_resp_err(DATA_ERROR, Some(String::from("jwt header not found")))));
     };
 
     let claim_vec = jwt_token_val.split(".").collect::<Vec<&str>>();
@@ -117,7 +114,7 @@ pub fn post_check_user_for_query_all(
     let res = de_sql_result_implicit::<RelId>(&first.data, &first.output_columns, RelId::enum_convert)?;
     if res.len() != 1 {
         return Err(Box::new(util::gen_resp_err(
-            BizResultInner::AUTH_ERROR,
+            AUTH_ERROR,
             Some(String::from("you don't have permission to access the app")),
         )));
     }
@@ -196,7 +193,7 @@ pub fn post_check_user_for_query_by_id(
     let res = de_sql_result_implicit::<RelId>(&first.data, &first.output_columns, RelId::enum_convert)?;
     if res.len() != 1 {
         return Err(Box::new(util::gen_resp_err(
-            BizResultInner::AUTH_ERROR,
+            AUTH_ERROR,
             Some(String::from("you don't have permission to access the app")),
         )));
     }
@@ -240,7 +237,7 @@ pub fn post_query_one_by_id_sql(
         .ok_or(format!("execute '{}' of invoke_binding_sql response not found", execute_name))?;
 
     if response.responses.is_empty() {
-        return Err(Box::new(util::gen_resp_err(BizResultInner::DATA_NOT_FOUND, None)));
+        return Err(Box::new(util::gen_resp_err(DATA_NOT_FOUND, None)));
     }
 
     let first = response.responses.first().unwrap();
@@ -311,7 +308,7 @@ pub async fn post_query_all_file(
         .ok_or(format!("execute '{}' of invoke_binding response not found", execute_name))?;
 
     if response.data.is_empty() {
-        return Err(Box::new(util::gen_resp_err(BizResultInner::DATA_NOT_FOUND, None)));
+        return Err(Box::new(util::gen_resp_err(DATA_NOT_FOUND, None)));
     }
     println!("response data from minio: {}", String::from_utf8_lossy(&response.data));
 
@@ -338,7 +335,7 @@ pub async fn post_query_all_file(
         debug!("invoke dapr binding response: {:?}", response);
 
         if let Err(err) = response {
-            return Err(Box::new(util::gen_resp_err(BizResultInner::DAPR_REQUEST_FAIL, Some(err.to_string()))));
+            return Err(Box::new(util::gen_resp_err(DAPR_REQUEST_FAIL, Some(err.to_string()))));
         }
         let response = response.unwrap();
 
@@ -411,14 +408,14 @@ pub async fn post_query_one_by_id(
         .ok_or(format!("execute '{}' of invoke_binding response not found", execute_name))?;
 
     if response.data.is_empty() {
-        return Err(Box::new(util::gen_resp_err(BizResultInner::DATA_NOT_FOUND, None)));
+        return Err(Box::new(util::gen_resp_err(DATA_NOT_FOUND, None)));
     }
     println!("response data from minio: {}", String::from_utf8_lossy(&response.data));
 
     let object_list = serde_json::from_slice::<ObjectList>(&response.data)?;
 
     if object_list.Contents.len() != 1 {
-        return Err(Box::new(util::gen_resp_err(BizResultInner::DATA_NOT_FOUND, None)));
+        return Err(Box::new(util::gen_resp_err(DATA_NOT_FOUND, None)));
     }
 
     let key = object_list.Contents[0].Key.clone().ok_or("file key not found")?;
@@ -439,7 +436,7 @@ pub async fn post_query_one_by_id(
     debug!("invoke dapr binding response: {:?}", response);
 
     if let Err(err) = response {
-        return Err(Box::new(util::gen_resp_err(BizResultInner::DAPR_REQUEST_FAIL, Some(err.to_string()))));
+        return Err(Box::new(util::gen_resp_err(DAPR_REQUEST_FAIL, Some(err.to_string()))));
     }
     let response = response.unwrap();
 

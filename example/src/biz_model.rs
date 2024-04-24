@@ -44,10 +44,7 @@ impl DBStorageModel {
         let enum_flds = [].to_vec();
         if enum_flds.contains(&f_name) {
             match f_name {
-                _ => Err(Box::new(gen_resp_err(
-                    BizResultInner::ENUM_NOT_FOUND,
-                    Some(format!("enum field {} not found", f_name)),
-                ))),
+                _ => Err(Box::new(gen_resp_err(ENUM_NOT_FOUND, Some(format!("enum field {} not found", f_name))))),
             }
         } else {
             Ok((false, None))
@@ -107,10 +104,7 @@ impl UserWithIdSid {
         let enum_flds = [].to_vec();
         if enum_flds.contains(&f_name) {
             match f_name {
-                _ => Err(Box::new(gen_resp_err(
-                    BizResultInner::ENUM_NOT_FOUND,
-                    Some(format!("enum field {} not found", f_name)),
-                ))),
+                _ => Err(Box::new(gen_resp_err(ENUM_NOT_FOUND, Some(format!("enum field {} not found", f_name))))),
             }
         } else {
             Ok((false, None))
@@ -146,10 +140,7 @@ impl Require {
         if enum_flds.contains(&f_name) {
             match f_name {
                 "require_type" => Ok((true, RequireType::lit_val_to_i32(f_value))),
-                _ => Err(Box::new(gen_resp_err(
-                    BizResultInner::ENUM_NOT_FOUND,
-                    Some(format!("enum field {} not found", f_name)),
-                ))),
+                _ => Err(Box::new(gen_resp_err(ENUM_NOT_FOUND, Some(format!("enum field {} not found", f_name))))),
             }
         } else {
             Ok((false, None))
@@ -186,7 +177,7 @@ impl FromStr for RequireType {
             "MQ" => Ok(RequireType::MQ),
             "SearchEngine" => Ok(RequireType::SearchEngine),
             "Other" => Ok(RequireType::Other),
-            _ => Err(gen_resp_err(BizResultInner::ENUM_NOT_FOUND, None)),
+            _ => Err(gen_resp_err(ENUM_NOT_FOUND, None)),
         }
     }
 }
@@ -457,10 +448,7 @@ impl IdRes {
         let enum_flds = [].to_vec();
         if enum_flds.contains(&f_name) {
             match f_name {
-                _ => Err(Box::new(gen_resp_err(
-                    BizResultInner::ENUM_NOT_FOUND,
-                    Some(format!("enum field {} not found", f_name)),
-                ))),
+                _ => Err(Box::new(gen_resp_err(ENUM_NOT_FOUND, Some(format!("enum field {} not found", f_name))))),
             }
         } else {
             Ok((false, None))
@@ -490,10 +478,7 @@ impl BulkIdRes {
         let enum_flds = [].to_vec();
         if enum_flds.contains(&f_name) {
             match f_name {
-                _ => Err(Box::new(gen_resp_err(
-                    BizResultInner::ENUM_NOT_FOUND,
-                    Some(format!("enum field {} not found", f_name)),
-                ))),
+                _ => Err(Box::new(gen_resp_err(ENUM_NOT_FOUND, Some(format!("enum field {} not found", f_name))))),
             }
         } else {
             Ok((false, None))
@@ -532,10 +517,7 @@ impl RelId {
         let enum_flds = [].to_vec();
         if enum_flds.contains(&f_name) {
             match f_name {
-                _ => Err(Box::new(gen_resp_err(
-                    BizResultInner::ENUM_NOT_FOUND,
-                    Some(format!("enum field {} not found", f_name)),
-                ))),
+                _ => Err(Box::new(gen_resp_err(ENUM_NOT_FOUND, Some(format!("enum field {} not found", f_name))))),
             }
         } else {
             Ok((false, None))
@@ -575,10 +557,7 @@ impl StorageModelInfo {
         let enum_flds = [].to_vec();
         if enum_flds.contains(&f_name) {
             match f_name {
-                _ => Err(Box::new(gen_resp_err(
-                    BizResultInner::ENUM_NOT_FOUND,
-                    Some(format!("enum field {} not found", f_name)),
-                ))),
+                _ => Err(Box::new(gen_resp_err(ENUM_NOT_FOUND, Some(format!("enum field {} not found", f_name))))),
             }
         } else {
             Ok((false, None))
@@ -640,10 +619,7 @@ impl SMDSL {
         let enum_flds = [].to_vec();
         if enum_flds.contains(&f_name) {
             match f_name {
-                _ => Err(Box::new(gen_resp_err(
-                    BizResultInner::ENUM_NOT_FOUND,
-                    Some(format!("enum field {} not found", f_name)),
-                ))),
+                _ => Err(Box::new(gen_resp_err(ENUM_NOT_FOUND, Some(format!("enum field {} not found", f_name))))),
             }
         } else {
             Ok((false, None))
@@ -672,10 +648,7 @@ impl PrimaryKeyInfo {
         let enum_flds = [].to_vec();
         if enum_flds.contains(&f_name) {
             match f_name {
-                _ => Err(Box::new(gen_resp_err(
-                    BizResultInner::ENUM_NOT_FOUND,
-                    Some(format!("enum field {} not found", f_name)),
-                ))),
+                _ => Err(Box::new(gen_resp_err(ENUM_NOT_FOUND, Some(format!("enum field {} not found", f_name))))),
             }
         } else {
             Ok((false, None))
@@ -700,10 +673,7 @@ impl ObjectList {
         let enum_flds = [].to_vec();
         if enum_flds.contains(&f_name) {
             match f_name {
-                _ => Err(Box::new(gen_resp_err(
-                    BizResultInner::ENUM_NOT_FOUND,
-                    Some(format!("enum field {} not found", f_name)),
-                ))),
+                _ => Err(Box::new(gen_resp_err(ENUM_NOT_FOUND, Some(format!("enum field {} not found", f_name))))),
             }
         } else {
             Ok((false, None))
@@ -727,10 +697,7 @@ impl ObjectListContent {
         let enum_flds = [].to_vec();
         if enum_flds.contains(&f_name) {
             match f_name {
-                _ => Err(Box::new(gen_resp_err(
-                    BizResultInner::ENUM_NOT_FOUND,
-                    Some(format!("enum field {} not found", f_name)),
-                ))),
+                _ => Err(Box::new(gen_resp_err(ENUM_NOT_FOUND, Some(format!("enum field {} not found", f_name))))),
             }
         } else {
             Ok((false, None))
