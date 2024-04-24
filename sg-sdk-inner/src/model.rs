@@ -13,8 +13,8 @@ use validator::Validate;
 use validator_derive::Validate;
 
 use crate::{
-    util::{self, gen_resp_err, BizResult, ResponseError},
-    HttpResult,
+    util::{self, gen_resp_err, ResponseError},
+    HttpResult, *,
 };
 
 #[derive(PartialEq, Eq, Serialize, Deserialize, Clone, Reflect)]
@@ -93,7 +93,7 @@ impl FromStr for ParamFrom {
             "Path" => Ok(ParamFrom::Path),
             "Query" => Ok(ParamFrom::Query),
             "Body" => Ok(ParamFrom::Body),
-            _ => Err(gen_resp_err(BizResult::ENUM_NOT_FOUND, None)),
+            _ => Err(gen_resp_err(ENUM_NOT_FOUND, None)),
         }
     }
 }
@@ -128,7 +128,7 @@ impl FromStr for ParamType {
             "Number" => Ok(ParamType::Number),
             "HashMap" => Ok(ParamType::HashMap),
             "Vec" => Ok(ParamType::Vec),
-            _ => Err(gen_resp_err(BizResult::ENUM_NOT_FOUND, None)),
+            _ => Err(gen_resp_err(ENUM_NOT_FOUND, None)),
         }
     }
 }
@@ -374,7 +374,7 @@ impl FromStr for Action {
             "Insert" => Ok(Action::Insert),
             "TX" => Ok(Action::TX),
             "Function" => Ok(Action::Function),
-            _ => Err(gen_resp_err(BizResult::ENUM_NOT_FOUND, None)),
+            _ => Err(gen_resp_err(ENUM_NOT_FOUND, None)),
         }
     }
 }
@@ -504,7 +504,7 @@ impl DaprRequest {
 
         let Some(config) = dapr_config.state.clone() else {
             return Err(Box::new(util::gen_resp_err(
-                BizResult::DAPR_CONFIG_NOT_EXIST,
+                DAPR_CONFIG_NOT_EXIST,
                 Some(format!("{}.{}", "DaprConfig", "state")),
             )));
         };
@@ -530,7 +530,7 @@ impl DaprRequest {
 
         let Some(config) = dapr_config.state.clone() else {
             return Err(Box::new(util::gen_resp_err(
-                BizResult::DAPR_CONFIG_NOT_EXIST,
+                DAPR_CONFIG_NOT_EXIST,
                 Some(format!("{}.{}", "DaprConfig", "state")),
             )));
         };
@@ -556,7 +556,7 @@ impl DaprRequest {
 
         let Some(config) = dapr_config.state.clone() else {
             return Err(Box::new(util::gen_resp_err(
-                BizResult::DAPR_CONFIG_NOT_EXIST,
+                DAPR_CONFIG_NOT_EXIST,
                 Some(format!("{}.{}", "DaprConfig", "state")),
             )));
         };
@@ -581,7 +581,7 @@ impl DaprRequest {
 
         let Some(config) = dapr_config.state.clone() else {
             return Err(Box::new(util::gen_resp_err(
-                BizResult::DAPR_CONFIG_NOT_EXIST,
+                DAPR_CONFIG_NOT_EXIST,
                 Some(format!("{}.{}", "DaprConfig", "state")),
             )));
         };
@@ -599,7 +599,7 @@ impl DaprRequest {
 
         let Some(config) = dapr_config.state.clone() else {
             return Err(Box::new(util::gen_resp_err(
-                BizResult::DAPR_CONFIG_NOT_EXIST,
+                DAPR_CONFIG_NOT_EXIST,
                 Some(format!("{}.{}", "DaprConfig", "state")),
             )));
         };
@@ -624,7 +624,7 @@ impl DaprRequest {
 
         let Some(config) = dapr_config.state.clone() else {
             return Err(Box::new(util::gen_resp_err(
-                BizResult::DAPR_CONFIG_NOT_EXIST,
+                DAPR_CONFIG_NOT_EXIST,
                 Some(format!("{}.{}", "DaprConfig", "state")),
             )));
         };
@@ -651,7 +651,7 @@ impl DaprRequest {
 
         let Some(config) = dapr_config.state.clone() else {
             return Err(Box::new(util::gen_resp_err(
-                BizResult::DAPR_CONFIG_NOT_EXIST,
+                DAPR_CONFIG_NOT_EXIST,
                 Some(format!("{}.{}", "DaprConfig", "state")),
             )));
         };
@@ -675,7 +675,7 @@ impl DaprRequest {
 
         let Some(config) = dapr_config.binding.clone() else {
             return Err(Box::new(util::gen_resp_err(
-                BizResult::DAPR_CONFIG_NOT_EXIST,
+                DAPR_CONFIG_NOT_EXIST,
                 Some(format!("{}.{}", "DaprConfig", "binding")),
             )));
         };
@@ -701,7 +701,7 @@ impl DaprRequest {
 
         let Some(config) = dapr_config.binding.clone() else {
             return Err(Box::new(util::gen_resp_err(
-                BizResult::DAPR_CONFIG_NOT_EXIST,
+                DAPR_CONFIG_NOT_EXIST,
                 Some(format!("{}.{}", "DaprConfig", "binding")),
             )));
         };
@@ -729,7 +729,7 @@ impl DaprRequest {
 
         let Some(config) = dapr_config.pubsub.clone() else {
             return Err(Box::new(util::gen_resp_err(
-                BizResult::DAPR_CONFIG_NOT_EXIST,
+                DAPR_CONFIG_NOT_EXIST,
                 Some(format!("{}.{}", "DaprConfig", "pubsub")),
             )));
         };
@@ -756,7 +756,7 @@ impl DaprRequest {
 
         let Some(config) = dapr_config.pubsub.clone() else {
             return Err(Box::new(util::gen_resp_err(
-                BizResult::DAPR_CONFIG_NOT_EXIST,
+                DAPR_CONFIG_NOT_EXIST,
                 Some(format!("{}.{}", "DaprConfig", "pubsub")),
             )));
         };
@@ -782,7 +782,7 @@ impl DaprRequest {
 
         let Some(config) = dapr_config.secret.clone() else {
             return Err(Box::new(util::gen_resp_err(
-                BizResult::DAPR_CONFIG_NOT_EXIST,
+                DAPR_CONFIG_NOT_EXIST,
                 Some(format!("{}.{}", "DaprConfig", "secret")),
             )));
         };
@@ -807,7 +807,7 @@ impl DaprRequest {
 
         let Some(config) = dapr_config.secret.clone() else {
             return Err(Box::new(util::gen_resp_err(
-                BizResult::DAPR_CONFIG_NOT_EXIST,
+                DAPR_CONFIG_NOT_EXIST,
                 Some(format!("{}.{}", "DaprConfig", "secret")),
             )));
         };
@@ -831,7 +831,7 @@ impl DaprRequest {
 
         let Some(config) = dapr_config.conf.clone() else {
             return Err(Box::new(util::gen_resp_err(
-                BizResult::DAPR_CONFIG_NOT_EXIST,
+                DAPR_CONFIG_NOT_EXIST,
                 Some(format!("{}.{}", "DaprConfig", "conf")),
             )));
         };

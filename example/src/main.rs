@@ -63,12 +63,17 @@ async fn query_one_by_id(params: &Params) -> HttpResult<IfRes<StorageModelInfo>>
 
 #[tokio::main]
 async fn main() -> HttpResult<()> {
-    init().await;
-
     init_log();
+
+    // 一定要设置，不设置的话，会使用默认值-1，-1在运行时会报错
+    biz_code_prefix!(1024);
+    register_biz_result!(DATA_ERROR_1,);
+    init().await?;
 
     // start_http(8080).await
     // start_grpc(8088).await
 
     start_http_grpc(8080, 8088).await
 }
+
+biz_result! {(DATA_ERROR_1, 500, 27, "data error");}

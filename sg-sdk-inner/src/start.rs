@@ -24,7 +24,7 @@ use crate::{
     body,
     model::{IfRes, Params, Res},
     util::{self, auth_ict, find_response_auth_header, parse_params_grpc, BizResult},
-    GrpcResult, HttpResult,
+    GrpcResult, HttpResult, *,
 };
 
 pub async fn start_http(port: u16) -> HttpResult<()> {
@@ -98,10 +98,10 @@ async fn http_service(req: Request<Incoming>) -> HttpResult<Response<body::Body>
         _ => {
             eprintln!("[request begin] error: uri match nothing");
             Ok(util::gen_resp(
-                BizResult::URI_NOT_MATCH.status_code(),
+                URI_NOT_MATCH.status_code(),
                 Res::<String> {
-                    code: BizResult::URI_NOT_MATCH.biz_code(),
-                    message: BizResult::URI_NOT_MATCH.message(),
+                    code: URI_NOT_MATCH.biz_code(),
+                    message: URI_NOT_MATCH.message(),
                     result: None,
                 },
             ))
@@ -136,7 +136,7 @@ impl AppCallback for GrpcService {
             // "QUERY_ONE_BY_ID" => handle_grpc(query_one_by_id(&params).await, &params),
             _ => {
                 eprintln!("request error: uri match nothing");
-                return GrpcResult::Err(Status::internal(BizResult::URI_NOT_MATCH.message()));
+                return GrpcResult::Err(Status::internal(URI_NOT_MATCH.message()));
             }
         }
     }
@@ -164,7 +164,7 @@ async fn handle_http<T: Serialize + prost::Message + ModelTrait + Default>(
     params: &Params,
 ) -> HttpResult<Response<body::Body>> {
     match http_res {
-        Ok(if_res) => Ok(util::gen_resp_ok(BizResult::OK, if_res, &params).await),
+        Ok(if_res) => Ok(util::gen_resp_ok(OK, if_res, &params).await),
         Err(err) => Ok(util::err_resolve(err).await),
     }
 }

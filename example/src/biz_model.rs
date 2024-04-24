@@ -45,7 +45,7 @@ impl DBStorageModel {
         if enum_flds.contains(&f_name) {
             match f_name {
                 _ => Err(Box::new(gen_resp_err(
-                    BizResult::ENUM_NOT_FOUND,
+                    BizResultInner::ENUM_NOT_FOUND,
                     Some(format!("enum field {} not found", f_name)),
                 ))),
             }
@@ -108,7 +108,7 @@ impl UserWithIdSid {
         if enum_flds.contains(&f_name) {
             match f_name {
                 _ => Err(Box::new(gen_resp_err(
-                    BizResult::ENUM_NOT_FOUND,
+                    BizResultInner::ENUM_NOT_FOUND,
                     Some(format!("enum field {} not found", f_name)),
                 ))),
             }
@@ -147,7 +147,7 @@ impl Require {
             match f_name {
                 "require_type" => Ok((true, RequireType::lit_val_to_i32(f_value))),
                 _ => Err(Box::new(gen_resp_err(
-                    BizResult::ENUM_NOT_FOUND,
+                    BizResultInner::ENUM_NOT_FOUND,
                     Some(format!("enum field {} not found", f_name)),
                 ))),
             }
@@ -186,7 +186,7 @@ impl FromStr for RequireType {
             "MQ" => Ok(RequireType::MQ),
             "SearchEngine" => Ok(RequireType::SearchEngine),
             "Other" => Ok(RequireType::Other),
-            _ => Err(gen_resp_err(BizResult::ENUM_NOT_FOUND, None)),
+            _ => Err(gen_resp_err(BizResultInner::ENUM_NOT_FOUND, None)),
         }
     }
 }
@@ -458,7 +458,7 @@ impl IdRes {
         if enum_flds.contains(&f_name) {
             match f_name {
                 _ => Err(Box::new(gen_resp_err(
-                    BizResult::ENUM_NOT_FOUND,
+                    BizResultInner::ENUM_NOT_FOUND,
                     Some(format!("enum field {} not found", f_name)),
                 ))),
             }
@@ -491,7 +491,7 @@ impl BulkIdRes {
         if enum_flds.contains(&f_name) {
             match f_name {
                 _ => Err(Box::new(gen_resp_err(
-                    BizResult::ENUM_NOT_FOUND,
+                    BizResultInner::ENUM_NOT_FOUND,
                     Some(format!("enum field {} not found", f_name)),
                 ))),
             }
@@ -533,7 +533,7 @@ impl RelId {
         if enum_flds.contains(&f_name) {
             match f_name {
                 _ => Err(Box::new(gen_resp_err(
-                    BizResult::ENUM_NOT_FOUND,
+                    BizResultInner::ENUM_NOT_FOUND,
                     Some(format!("enum field {} not found", f_name)),
                 ))),
             }
@@ -576,7 +576,7 @@ impl StorageModelInfo {
         if enum_flds.contains(&f_name) {
             match f_name {
                 _ => Err(Box::new(gen_resp_err(
-                    BizResult::ENUM_NOT_FOUND,
+                    BizResultInner::ENUM_NOT_FOUND,
                     Some(format!("enum field {} not found", f_name)),
                 ))),
             }
@@ -641,7 +641,7 @@ impl SMDSL {
         if enum_flds.contains(&f_name) {
             match f_name {
                 _ => Err(Box::new(gen_resp_err(
-                    BizResult::ENUM_NOT_FOUND,
+                    BizResultInner::ENUM_NOT_FOUND,
                     Some(format!("enum field {} not found", f_name)),
                 ))),
             }
@@ -673,7 +673,7 @@ impl PrimaryKeyInfo {
         if enum_flds.contains(&f_name) {
             match f_name {
                 _ => Err(Box::new(gen_resp_err(
-                    BizResult::ENUM_NOT_FOUND,
+                    BizResultInner::ENUM_NOT_FOUND,
                     Some(format!("enum field {} not found", f_name)),
                 ))),
             }
@@ -701,7 +701,7 @@ impl ObjectList {
         if enum_flds.contains(&f_name) {
             match f_name {
                 _ => Err(Box::new(gen_resp_err(
-                    BizResult::ENUM_NOT_FOUND,
+                    BizResultInner::ENUM_NOT_FOUND,
                     Some(format!("enum field {} not found", f_name)),
                 ))),
             }
@@ -728,7 +728,7 @@ impl ObjectListContent {
         if enum_flds.contains(&f_name) {
             match f_name {
                 _ => Err(Box::new(gen_resp_err(
-                    BizResult::ENUM_NOT_FOUND,
+                    BizResultInner::ENUM_NOT_FOUND,
                     Some(format!("enum field {} not found", f_name)),
                 ))),
             }
