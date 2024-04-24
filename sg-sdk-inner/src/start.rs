@@ -132,7 +132,7 @@ impl AppCallback for GrpcService {
         };
 
         match params.uri.as_str() {
-            // "QUERY_ALL_SMS" => handle_grpc(query_all_sms(&params).await, &params),
+            // "INSERT" => handle_grpc(query_one_by_id(&params).await, &params).await,
             // "QUERY_ONE_BY_ID" => handle_grpc(query_one_by_id(&params).await, &params),
             _ => {
                 eprintln!("request error: uri match nothing");

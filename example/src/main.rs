@@ -9,6 +9,7 @@ pub use pipe_trait::*;
 pub use rbatis::crud;
 pub use serde::*;
 pub use sg_sdk_inner::{config::*, daprs::*, log::*, model::*, start::*, util::*, *};
+use sg_sdk_macro::uri_handler;
 pub use std::collections::*;
 pub use std::str::FromStr;
 pub use tracing::{debug, error, info, trace, warn};
@@ -38,6 +39,8 @@ async fn query_all_sms(params: &Params) -> HttpResult<IfRes<StorageModelInfo>> {
         .await
 }
 
+// 注册URI handler
+// #[uri_handler("INSERT", ForConfig)]
 async fn query_one_by_id(params: &Params) -> HttpResult<IfRes<StorageModelInfo>> {
     params
         .pipe(util::params_to_model::<DBStorageModel, StorageModelInfo, UserWithIdSid>)
@@ -74,3 +77,5 @@ async fn main() -> HttpResult<()> {
 }
 
 biz_result! {(CUSTOM_BIZ_RES, 500, 100241, "custom biz result message");}
+
+struct ForConfig();

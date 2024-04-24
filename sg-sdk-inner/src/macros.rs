@@ -70,3 +70,24 @@ macro_rules! register_uri {
         )*
     }
 }
+
+#[macro_export]
+macro_rules! register_uri_handler {
+    ($uri_name:ident,$fn_name:ident,$acceptor:ident) => {
+        impl $acceptor {
+            async fn $fn_name() -> HttpResult<()> {
+                let mut uri_handlers = URI_HANDLERS.write().await;
+                match uri_handlers.insert(stringify!($uri_name).to_string(), stringify!($fn_name).to_string()) {
+                    None => {}
+                    Some(_) => {
+                        return Err(Box::new(ResponseError {
+                            biz_res: format!("uri '{:?}' has registered", $uri_name),
+                            message: None,
+                        }));
+                    }
+                };
+                Ok(())
+            }
+        }
+    };
+}

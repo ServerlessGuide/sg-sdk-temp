@@ -46,6 +46,7 @@ lazy_static! {
     pub static ref INTERNAL_AUTH_TAG: RwLock<Option<String>> = RwLock::new(None);
     pub static ref URI_REGEX_MAP: RwLock<HashMap<URI, regex::Regex>> = RwLock::new(HashMap::<URI, regex::Regex>::new());
     pub static ref URIS: RwLock<HashMap<String, URI>> = RwLock::new(HashMap::<String, URI>::new());
+    pub static ref URI_HANDLERS: RwLock<HashMap<String, String>> = RwLock::new(HashMap::<String, String>::new());
     pub static ref BIZ_RESULT_MAP: RwLock<HashMap<String, BizResult<'static>>> = RwLock::new(HashMap::<String, BizResult>::new());
     pub static ref INCOME_PARAM_MAP: RwLock<HashMap<String, ExtraParamMap>> = RwLock::new(HashMap::<String, ExtraParamMap>::new());
     pub static ref DAPR_CONFIG: HashMap<String, DaprConfig> = {
@@ -155,7 +156,7 @@ pub async fn init() -> HttpResult<()> {
     );
 
     // 注册URI，示例：
-    // register_uri!(QUERY_BY_APP_ID, INSERT, ENV_PREPARE);
+    register_uri!(QUERY_BY_APP_ID, INSERT, ENV_PREPARE);
 
     // 设置接口入参，示例
     // income_param! {
@@ -174,11 +175,11 @@ pub async fn init() -> HttpResult<()> {
 }
 
 // 初始化URI，示例：
-// uri! {
-//     (QUERY_BY_APP_ID, GET, "^/app-version/\\d{19}$", Query, false, true);
-//     (INSERT, POST, "^/app-version$", Insert, false, false);
-//     (ENV_PREPARE, GET, "^/app-version/\\d{19}/env-prepare$", Function, false, false);
-// }
+uri! {
+    (QUERY_BY_APP_ID, GET, "^/app-version/\\d{19}$", Query, false, true);
+    (INSERT, POST, "^/app-version$", Insert, false, false);
+    (ENV_PREPARE, GET, "^/app-version/\\d{19}/env-prepare$", Function, false, false);
+}
 
 // 初始化BizResult，这些是固定的BizResult，范围：999900-999999，业务场景不能使用，示例：
 biz_result! {
