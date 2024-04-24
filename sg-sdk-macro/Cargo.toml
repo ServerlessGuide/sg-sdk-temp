@@ -10,7 +10,8 @@ name = "sg_sdk_macro"
 proc_macro = true
 
 [dependencies]
-
+quote = "1"
+syn = { version = "2" }
 
 [profile.release]
 panic = "abort"

@@ -23,7 +23,7 @@ use tracing::{error, info};
 use crate::{
     body,
     model::{IfRes, Params, Res},
-    util::{self, auth_ict, find_response_auth_header, parse_params_grpc, BizResult},
+    util::{self, auth_ict, find_response_auth_header, parse_params_grpc},
     GrpcResult, HttpResult, *,
 };
 

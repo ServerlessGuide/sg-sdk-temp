@@ -1,6 +1,4 @@
-use crate::{
-    body, config::*, daprs::*, model::*, GrpcResult, HttpResult, DAPR_CONFIG, INCOME_PARAM_MAP, INTERNAL_AUTH_TAG, SKIP_AUTH_IFS, URIS, URI_REGEX_MAP, *,
-};
+use crate::{body, daprs::*, model::*, GrpcResult, HttpResult, DAPR_CONFIG, INCOME_PARAM_MAP, INTERNAL_AUTH_TAG, SKIP_AUTH_IFS, URIS, URI_REGEX_MAP, *};
 use chrono::{DateTime, Local};
 use dapr::{
     appcallback::InvokeRequest,
@@ -311,7 +309,7 @@ impl BizResult<'static> {
     }
 }
 
-pub async fn insert_biz_result(mut biz_res: BizResult<'static>) -> HttpResult<()> {
+pub async fn insert_biz_result(biz_res: BizResult<'static>) -> HttpResult<()> {
     let mut biz_result_map = BIZ_RESULT_MAP.write().await;
     match biz_result_map.insert(biz_res.name(), biz_res) {
         None => {}

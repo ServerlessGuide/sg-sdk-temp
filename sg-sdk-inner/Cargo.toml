@@ -45,8 +45,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 mime = { version = "0.3.17" }
 multer = { version = "3.0.0" }
 tokio-util = { version = "0.7" }
-quote = "1"
-# syn = { version = "2" }
+sg-sdk-macro = { path = "../sg-sdk-macro" }
 
 
 [profile.release]
