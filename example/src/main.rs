@@ -65,9 +65,7 @@ async fn query_one_by_id(params: &Params) -> HttpResult<IfRes<StorageModelInfo>>
 async fn main() -> HttpResult<()> {
     init_log();
 
-    // 一定要设置，不设置的话，会使用默认值-1，-1在运行时会报错
-    biz_code_prefix!(1024);
-    register_biz_result!(DATA_ERROR_1,);
+    register_biz_result!(CUSTOM_BIZ_RES);
 
     // start_http(8080).await
     // start_grpc(8088).await
@@ -75,4 +73,5 @@ async fn main() -> HttpResult<()> {
     start_http_grpc(8080, 8088).await
 }
 
-biz_result! {(DATA_ERROR_1, 500, 27, "data error");}
+// 参数：业务码名称，HTTP状态码，业务码，业务信息
+biz_result! {(CUSTOM_BIZ_RES, 500, 100241, "custom biz result message");}

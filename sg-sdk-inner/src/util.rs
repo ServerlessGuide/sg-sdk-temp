@@ -1,6 +1,5 @@
 use crate::{
-    body, config::*, daprs::*, model::*, GrpcResult, HttpResult, BIZ_CODE_PREFIX, DAPR_CONFIG, INCOME_PARAM_MAP, INTERNAL_AUTH_TAG, SKIP_AUTH_IFS, URIS,
-    URI_REGEX_MAP, *,
+    body, config::*, daprs::*, model::*, GrpcResult, HttpResult, DAPR_CONFIG, INCOME_PARAM_MAP, INTERNAL_AUTH_TAG, SKIP_AUTH_IFS, URIS, URI_REGEX_MAP, *,
 };
 use chrono::{DateTime, Local};
 use dapr::{
@@ -113,6 +112,7 @@ pub async fn err_resolve(err: Box<dyn std::error::Error + Send + Sync>) -> Respo
         }
         let biz_res_name = respnse_err.biz_res.to_owned();
         let biz_res = BizResult::from(biz_res_name).await;
+
         if let Err(err) = biz_res {
             if err.is::<ResponseError>() {
                 return gen_resp(
@@ -281,37 +281,6 @@ pub async fn insert_uri(uri: URI) -> HttpResult<()> {
     Ok(())
 }
 
-#[macro_export]
-macro_rules! uri {
-    (
-        $(
-            ($konst:ident, $method:ident, $path:expr, $action:ident, $bulk_input:expr, $bulk_output:expr);
-        )*
-    ) => {
-        impl URI {
-            $(
-                pub const $konst: URI = URI(hyper::Method::$method, $path, stringify!($konst), crate::model::Action::$action, $bulk_input, $bulk_output);
-            )*
-        }
-
-        $(
-            let _ = crate::util::insert_uri(crate::util::URI::$konst).await;
-        )*
-    }
-}
-
-pub async fn set_biz_code_prefix(biz_code_prefix: i16) -> HttpResult<()> {
-    *BIZ_CODE_PREFIX.write().await = biz_code_prefix;
-    Ok(())
-}
-
-#[macro_export]
-macro_rules! biz_code_prefix {
-    ($num:expr) => {
-        crate::util::set_biz_code_prefix($num).await?;
-    };
-}
-
 #[derive(PartialEq, Eq, Debug, Hash, Clone, Copy)]
 pub struct BizResult<'a>(pub u16, pub i32, pub &'a str, pub &'a str);
 
@@ -343,17 +312,6 @@ impl BizResult<'static> {
 }
 
 pub async fn insert_biz_result(mut biz_res: BizResult<'static>) -> HttpResult<()> {
-    if biz_res.biz_code() <= 39 || biz_res.biz_code() >= 10000 {
-        return Err(Box::new(ResponseError {
-            biz_res: String::from("biz result code should between 40 and 9999"),
-            message: None,
-        }));
-    }
-
-    let biz_code_prefix = crate::BIZ_CODE_PREFIX.read().await;
-    let new_biz_code: i32 = format!("{}{:02}", *biz_code_prefix, biz_res.biz_code()).parse()?;
-    biz_res.1 = new_biz_code;
-
     let mut biz_result_map = BIZ_RESULT_MAP.write().await;
     match biz_result_map.insert(biz_res.name(), biz_res) {
         None => {}
@@ -365,28 +323,6 @@ pub async fn insert_biz_result(mut biz_res: BizResult<'static>) -> HttpResult<()
         }
     };
     Ok(())
-}
-
-#[macro_export]
-macro_rules! biz_result {
-    (
-        $(
-            ($konst:ident, $status_code:expr, $biz_code:expr, $message:expr);
-        )*
-    ) => {
-        $(
-            pub const $konst: crate::util::BizResult<'static> = crate::util::BizResult($status_code, $biz_code, $message, stringify!($konst));
-        )*
-    }
-}
-
-#[macro_export]
-macro_rules! register_biz_result {
-    ($($konst:ident$(,)+)*) => {
-        $(
-            util::insert_biz_result($konst).await?;
-        )*
-    }
 }
 
 pub async fn insert_income_param(uri: URI, params: Vec<(String, String, ParamFrom, ParamType, bool)>) -> HttpResult<()> {
@@ -419,19 +355,6 @@ pub async fn insert_income_param(uri: URI, params: Vec<(String, String, ParamFro
     Ok(())
 }
 
-#[macro_export]
-macro_rules! income_param {
-    (
-        $(
-            ($konst:ident,[$(($target:ident,$name:expr,$from:ident,$type:ident,$require:expr)$(,)?)*]);
-        )*
-    ) => {
-        $(
-            let _ = crate::util::insert_income_param(crate::util::URI::$konst, vec![$((String::from(stringify!($target)),String::from(stringify!($name)),crate::model::ParamFrom::$from,crate::model::ParamType::$type,$require),)*]).await;
-        )*
-    }
-}
-
 pub async fn set_internal_auth_tag(tag: &str) -> HttpResult<()> {
     *INTERNAL_AUTH_TAG.write().await = match tag.is_empty() {
         true => {
@@ -446,28 +369,12 @@ pub async fn set_internal_auth_tag(tag: &str) -> HttpResult<()> {
     Ok(())
 }
 
-#[macro_export]
-macro_rules! internal_auth_tag {
-    ($tag:expr) => {
-        let _ = crate::util::set_internal_auth_tag($tag).await;
-    };
-}
-
 pub async fn set_skip_auth_uri(uri: URI) -> HttpResult<()> {
     let mut skip_ifs = SKIP_AUTH_IFS.write().await;
 
     skip_ifs.push(uri.name().to_string());
 
     Ok(())
-}
-
-#[macro_export]
-macro_rules! skip_auth_uri {
-    ($($target:ident$(,)?)*) => {
-        $(
-            let _ = crate::util::set_skip_auth_uri(crate::util::URI::$target).await;
-        )*
-    };
 }
 
 pub async fn uri_match(req_path: &str, req_method: Method) -> HttpResult<URI> {
