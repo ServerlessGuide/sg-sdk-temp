@@ -30,6 +30,7 @@ tracing = { version = "0.1", features = ["attributes"] }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 base64 = { version = "0.21" }
 sg-sdk-inner = { path = "../sg-sdk-inner" }
+sg-sdk-macro = { path = "../sg-sdk-macro" }
 
 [profile.release]
 opt-level = 3

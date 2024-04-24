@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["sg-sdk-inner", "example"]
+members = ["sg-sdk-inner", "sg-sdk-macro", "example"]
 
 [workspace.package]
 license = "MIT OR Apache-2.0"

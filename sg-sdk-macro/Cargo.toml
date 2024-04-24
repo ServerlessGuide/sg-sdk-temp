@@ -1,0 +1,19 @@
+[package]
+name = "sg-sdk-macro"
+version = "0.0.1"
+edition = "2021"
+repository = "git@github.com:ServerlessGuide/sg-sdk-temp/sg-sdk-macro.git"
+description = "sg sdk"
+
+[lib]
+name = "sg_sdk_macro"
+proc_macro = true
+
+[dependencies]
+
+
+[profile.release]
+panic = "abort"
+opt-level = "s"
+lto = true
+codegen-units = 1
