@@ -73,5 +73,4 @@ async fn main() -> HttpResult<()> {
     start_http_grpc(8080, 8088).await
 }
 
-// 参数：业务码名称，HTTP状态码，业务码，业务信息
 biz_result! {(CUSTOM_BIZ_RES, 500, 100241, "custom biz result message");}
