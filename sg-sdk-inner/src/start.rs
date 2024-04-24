@@ -92,9 +92,20 @@ async fn http_service(req: Request<Incoming>) -> HttpResult<Response<body::Body>
         }
     };
 
+    let uri_handlers = URI_HANDLERS.read().await;
+    let macro_str = (*uri_handlers)
+        .iter()
+        .map(|(uri_name, fn_name)| format!("({}, {})", uri_name, fn_name))
+        .collect::<Vec<String>>()
+        .join(",");
+
+    // generate_http_uri_handle_branch!(macro_str)
     match params.uri.as_str() {
-        // "QUERY_ALL_SMS" => handle_http(query_all_sms(&params).await, &params),
-        // "QUERY_ONE_BY_ID" => handle_http(query_one_by_id(&params).await, &params),
+        // $(
+        //     stringify!($uri_name) => handle_http($fn_name(&params).await, &params).await,
+        // )*
+        // "INSERT" => handle_grpc(query_one_by_id(&params).await, &params).await,
+        // "QUERY_ONE_BY_ID" => handle_grpc(query_one_by_id(&params).await, &params),
         _ => {
             eprintln!("[request begin] error: uri match nothing");
             Ok(util::gen_resp(

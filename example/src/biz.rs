@@ -2,9 +2,9 @@ use crate::*;
 
 lazy_static! {}
 
-pub fn prepare_inner_context<I: DaprBody + ModelTrait + Default + prost::Message, O: DaprBody + ModelTrait + Default + prost::Message>(
-    mut context: ContextWrapper<I, O, UserWithIdSid>,
-) -> HttpResult<ContextWrapper<I, O, UserWithIdSid>> {
+pub fn prepare_inner_context_for_query_by_app_id(
+    mut context: ContextWrapper<QueryAppVersions, AppVersion, UserWithIdSid>,
+) -> HttpResult<ContextWrapper<QueryAppVersions, AppVersion, UserWithIdSid>> {
     let jwt_token_val = if let Some(v) = context.header.get(AuthHeader::XSGAuthJWT.lower_case_value()) {
         v.to_string()
     } else if let Some(v) = context.header.get(AuthHeader::XSGAuthJWT.lower_case_value()) {
@@ -24,37 +24,23 @@ pub fn prepare_inner_context<I: DaprBody + ModelTrait + Default + prost::Message
     let sid = claims.sid.ok_or("jwt token claim not correct")?;
     let id = claims.id.ok_or("jwt token claim not correct")?;
 
-    context.inner_context = Some(UserWithIdSid {
-        id: Some(id),
-        sid: Some(sid),
-        app_code: None,
-        snow_id: None,
-        app_version: None,
-        db_database_id: None,
-        db_database_name: None,
-        db_user_name: None,
-        db_user_password: None,
-        require_instance_name: None,
-        require_name: None,
-        require_type: None,
-        sm_name: None,
-    });
+    context.inner_context = Some(UserWithIdSid { id: Some(id), sid: Some(sid) });
 
     Ok(context)
 }
 
-pub fn pre_check_user_for_query_all(
-    context: ContextWrapper<DBStorageModel, StorageModelInfo, UserWithIdSid>,
-) -> HttpResult<ContextWrapper<DBStorageModel, StorageModelInfo, UserWithIdSid>> {
-    let execute_name = "query_app_info";
+pub fn pre_check_permission(
+    context: ContextWrapper<QueryAppVersions, AppVersion, UserWithIdSid>,
+) -> HttpResult<ContextWrapper<QueryAppVersions, AppVersion, UserWithIdSid>> {
+    let execute_name = "query_rel_exist";
 
-    let dapr_config = find_dapr_config("db-sm")?;
+    let dapr_config = find_dapr_config("app-version")?;
     let mut dapr_req_ins = DaprRequest::make_invoke_binding_sql(&dapr_config)?;
     let invoke_binding_sql = dapr_req_ins.invoke_binding_sql.as_mut().ok_or("DaprRequest.invoke_binding_sql make error")?;
 
     let inner_context = context.inner_context.clone().ok_or("inner context not exist")?;
 
-    let user_id = &inner_context.id.ok_or("user id not found")?;
+    let id = &inner_context.id.ok_or("user id not found")?;
 
     let operation = SqlOperation::Query;
     invoke_binding_sql.operation = operation.clone();
@@ -62,31 +48,18 @@ pub fn pre_check_user_for_query_all(
         vec![(
             String::from(
                 "select
-    r.id as rel_id,
-    c.code as app_code,
-    v.version as app_version
+    r.id as rel_id
 from
-    public.rel_user_app_role r, public.role as l, public.app_require as b, public.db_database a, public.app as c, public.app_version v
+    public.rel_user_app_role r, public.role as l
 where
     l.id = r.role_id
-    and r.app_id = b.app_id
-    and v.id = b.app_version_id
-    and a.app_require_id = b.id
-    and r.app_id = c.id
     and r.user_id = ?
-    and a.id = ?;
+    and r.app_id = ?;
 ",
             ),
             vec![
-                rbs::Value::I64(user_id.to_owned().parse()?),
-                rbs::Value::I64(
-                    context
-                        .input
-                        .clone()
-                        .ok_or("input param not found")?
-                        .db_database_id
-                        .ok_or("db_database_id not found")?,
-                ),
+                rbs::Value::I64(id.to_owned().parse()?),
+                rbs::Value::I64(context.input.clone().ok_or("input param not found")?.app_id.ok_or("app id not found")?),
             ],
             false,
             None,
@@ -99,10 +72,10 @@ where
     Ok(set_dapr_req(context, dapr_req_ins, execute_name)?)
 }
 
-pub fn post_check_user_for_query_all(
-    mut context: ContextWrapper<DBStorageModel, StorageModelInfo, UserWithIdSid>,
-) -> HttpResult<ContextWrapper<DBStorageModel, StorageModelInfo, UserWithIdSid>> {
-    let execute_name = "query_app_info";
+pub fn post_check_permission(
+    mut context: ContextWrapper<QueryAppVersions, AppVersion, UserWithIdSid>,
+) -> HttpResult<ContextWrapper<QueryAppVersions, AppVersion, UserWithIdSid>> {
+    let execute_name = "query_rel_exist";
     let (_, res, _) = find_dapr_execute(&mut context.exec, execute_name)?;
 
     let response = res
@@ -119,27 +92,88 @@ pub fn post_check_user_for_query_all(
         )));
     }
 
-    let mut c_t = context.inner_context.clone().ok_or("inner context not found")?;
-    c_t.app_code = Some(res[0].app_code.to_owned().ok_or("app code not found")?);
-    c_t.app_version = Some(res[0].app_version.to_owned().ok_or("app version not found")?);
+    Ok(context)
+}
 
-    context.inner_context = Some(c_t);
+pub fn pre_query_by_app_id(
+    context: ContextWrapper<QueryAppVersions, AppVersion, UserWithIdSid>,
+) -> HttpResult<ContextWrapper<QueryAppVersions, AppVersion, UserWithIdSid>> {
+    let execute_name = "query_by_app_id";
+
+    let dapr_config = find_dapr_config("app-version")?;
+    let mut dapr_req_ins = DaprRequest::make_invoke_binding_sql(&dapr_config)?;
+    let invoke_binding_sql = dapr_req_ins.invoke_binding_sql.as_mut().ok_or("DaprRequest.invoke_binding_sql make error")?;
+
+    let app_id = context.input.clone().ok_or("input not exist")?.app_id.ok_or("app_id not exist")?;
+
+    let operation = SqlOperation::Query;
+    invoke_binding_sql.operation = operation.clone();
+    invoke_binding_sql.sqls = trans_sql_info(vec![AppVersion::select_by_column("app_id", app_id)?], operation.clone(), &dapr_config)?;
+
+    Ok(set_dapr_req(context, dapr_req_ins, execute_name)?)
+}
+
+pub fn post_query_by_app_id(
+    mut context: ContextWrapper<QueryAppVersions, AppVersion, UserWithIdSid>,
+) -> HttpResult<ContextWrapper<QueryAppVersions, AppVersion, UserWithIdSid>> {
+    let execute_name = "query_by_app_id";
+    let (_, res, _) = find_dapr_execute(&mut context.exec, execute_name)?;
+
+    let response = res
+        .invoke_binding_sql
+        .clone()
+        .ok_or(format!("execute '{}' of invoke_binding_sql response not found", execute_name))?;
+
+    if response.responses.is_empty() {
+        return Err(Box::new(util::gen_resp_err(DATA_NOT_FOUND, None)));
+    }
+
+    let first = response.responses.first().unwrap();
+    let res = de_sql_result_implicit::<AppVersion>(&first.data, &first.output_columns, AppVersion::enum_convert)?;
+    context.outputs = res;
 
     Ok(context)
 }
 
-pub fn pre_check_user_for_query_by_id(
-    context: ContextWrapper<DBStorageModel, StorageModelInfo, UserWithIdSid>,
-) -> HttpResult<ContextWrapper<DBStorageModel, StorageModelInfo, UserWithIdSid>> {
-    let execute_name = "query_app_info";
+pub fn prepare_inner_context_for_insert(
+    mut context: ContextWrapper<AppVersion, EmptyOutPut, UserWithIdSid>,
+) -> HttpResult<ContextWrapper<AppVersion, EmptyOutPut, UserWithIdSid>> {
+    let jwt_token_val = if let Some(v) = context.header.get(AuthHeader::XSGAuthJWT.lower_case_value()) {
+        v.to_string()
+    } else if let Some(v) = context.header.get(AuthHeader::XSGAuthJWT.lower_case_value()) {
+        v.to_string()
+    } else {
+        return Err(Box::new(util::gen_resp_err(DATA_ERROR, Some(String::from("jwt header not found")))));
+    };
 
-    let dapr_config = find_dapr_config("db-sm")?;
+    let claim_vec = jwt_token_val.split(".").collect::<Vec<&str>>();
+    let claim_str = claim_vec.get(1).ok_or("jwt token format error")?;
+
+    use base64::engine::general_purpose::*;
+    use base64::Engine;
+
+    let decoded = STANDARD_NO_PAD.decode(claim_str)?;
+    let claims = serde_json::from_slice::<UserWithIdSid>(&decoded)?;
+    let sid = claims.sid.ok_or("jwt token claim not correct")?;
+    let id = claims.id.ok_or("jwt token claim not correct")?;
+
+    context.inner_context = Some(UserWithIdSid { id: Some(id), sid: Some(sid) });
+
+    Ok(context)
+}
+
+pub fn pre_check_permission_for_insert(
+    context: ContextWrapper<AppVersion, EmptyOutPut, UserWithIdSid>,
+) -> HttpResult<ContextWrapper<AppVersion, EmptyOutPut, UserWithIdSid>> {
+    let execute_name = "query_rel_exist";
+
+    let dapr_config = find_dapr_config("app-version")?;
     let mut dapr_req_ins = DaprRequest::make_invoke_binding_sql(&dapr_config)?;
     let invoke_binding_sql = dapr_req_ins.invoke_binding_sql.as_mut().ok_or("DaprRequest.invoke_binding_sql make error")?;
 
     let inner_context = context.inner_context.clone().ok_or("inner context not exist")?;
 
-    let user_id = &inner_context.id.ok_or("user id not found")?;
+    let id = &inner_context.id.ok_or("user id not found")?;
 
     let operation = SqlOperation::Query;
     invoke_binding_sql.operation = operation.clone();
@@ -147,24 +181,150 @@ pub fn pre_check_user_for_query_by_id(
         vec![(
             String::from(
                 "select
-    r.id as rel_id,
-    c.code as app_code,
-    v.version as app_version
+    r.id as rel_id
 from
-    public.rel_user_app_role r, public.role as l, public.app_require as b, public.db_database a, public.app as c, public.app_version v, public.db_sm s
+    public.rel_user_app_role r, public.role as l
 where
     l.id = r.role_id
-    and r.app_id = b.app_id
-    and v.id = b.app_version_id
-    and a.app_require_id = b.id
-    and r.app_id = c.id
-    and s.db_database_id = a.id
     and r.user_id = ?
-    and s.id = ?;
+    and r.app_id = ?;
 ",
             ),
             vec![
-                rbs::Value::I64(user_id.to_owned().parse()?),
+                rbs::Value::I64(id.to_owned().parse()?),
+                rbs::Value::I64(context.input.clone().ok_or("input param not found")?.app_id.ok_or("app id not found")?),
+            ],
+            false,
+            None,
+            None,
+        )],
+        operation.clone(),
+        &dapr_config,
+    )?;
+
+    Ok(set_dapr_req(context, dapr_req_ins, execute_name)?)
+}
+
+pub fn post_check_permission_for_insert(
+    mut context: ContextWrapper<AppVersion, EmptyOutPut, UserWithIdSid>,
+) -> HttpResult<ContextWrapper<AppVersion, EmptyOutPut, UserWithIdSid>> {
+    let execute_name = "query_rel_exist";
+    let (_, res, _) = find_dapr_execute(&mut context.exec, execute_name)?;
+
+    let response = res
+        .invoke_binding_sql
+        .clone()
+        .ok_or(format!("execute '{}' of invoke_binding_sql response not found", execute_name))?;
+
+    let first = response.responses.first().unwrap();
+    let res = de_sql_result_implicit::<RelId>(&first.data, &first.output_columns, RelId::enum_convert)?;
+    if res.len() != 1 {
+        return Err(Box::new(util::gen_resp_err(
+            AUTH_ERROR,
+            Some(String::from("you don't have permission to access the app")),
+        )));
+    }
+
+    Ok(context)
+}
+
+pub fn pre_get_snowflake_id(
+    context: ContextWrapper<AppVersion, EmptyOutPut, UserWithIdSid>,
+) -> HttpResult<ContextWrapper<AppVersion, EmptyOutPut, UserWithIdSid>> {
+    let execute_name = "get_snowflake_id";
+
+    let dapr_req_ins = DaprRequest::make_invoke_service(
+        "id-serverlessguide-dev".to_string(),
+        "id/bulk".to_string(),
+        "application/json".to_string(),
+        MethodEnum::GET,
+        format!("num={}", 1),
+    )?;
+
+    Ok(set_dapr_req(context, dapr_req_ins, execute_name)?)
+}
+
+pub fn pre_insert(mut context: ContextWrapper<AppVersion, EmptyOutPut, UserWithIdSid>) -> HttpResult<ContextWrapper<AppVersion, EmptyOutPut, UserWithIdSid>> {
+    let execute_name = "get_snowflake_id";
+    let (_, res, _) = find_dapr_execute(&mut context.exec, execute_name)?;
+
+    let response = res
+        .invoke_service
+        .as_mut()
+        .ok_or(format!("execute '{}' of invoke_service response not found", execute_name))?;
+
+    let Some(data) = &response.data else {
+        return Err(Box::new(util::gen_resp_err(DATA_NOT_FOUND, None)));
+    };
+
+    let ids = de_any_json::<BulkIdRes>(data)?
+        .downcast_mut::<BulkIdRes>()
+        .ok_or("downcast error")?
+        .result
+        .clone();
+
+    if ids.len() != 1 {
+        return Err(Box::new(util::gen_resp_err(DATA_ERROR, Some(String::from("get ids from id length not 1")))));
+    }
+
+    let execute_name = "insert";
+
+    let dapr_config = find_dapr_config("app-version")?;
+    let mut dapr_req_ins = DaprRequest::make_invoke_binding_sql(&dapr_config)?;
+    let invoke_binding_sql = dapr_req_ins.invoke_binding_sql.as_mut().ok_or("DaprRequest.invoke_binding_sql make error")?;
+
+    let mut data = context.input.clone().unwrap();
+    let time = utc_timestamp();
+    data.create_time = Some(time.to_string());
+    data.update_time = Some(time.to_string());
+    data.active = Some(true);
+    data.id = Some(ids[0]);
+
+    let operation = SqlOperation::Exec;
+    invoke_binding_sql.operation = operation.clone();
+    invoke_binding_sql.sqls = trans_sql_info(AppVersion::insert(&data)?, operation.clone(), &dapr_config)?;
+
+    Ok(set_dapr_req(context, dapr_req_ins, execute_name)?)
+}
+
+pub fn post_insert(mut context: ContextWrapper<AppVersion, EmptyOutPut, UserWithIdSid>) -> HttpResult<ContextWrapper<AppVersion, EmptyOutPut, UserWithIdSid>> {
+    context.output = Some(EmptyOutPut {});
+
+    Ok(context)
+}
+
+pub fn pre_check_permission_for_env_prepare(
+    context: ContextWrapper<AppVersion, EmptyOutPut, UserWithIdSid>,
+) -> HttpResult<ContextWrapper<AppVersion, EmptyOutPut, UserWithIdSid>> {
+    let execute_name = "query_rel_exist";
+
+    let dapr_config = find_dapr_config("app-version")?;
+    let mut dapr_req_ins = DaprRequest::make_invoke_binding_sql(&dapr_config)?;
+    let invoke_binding_sql = dapr_req_ins.invoke_binding_sql.as_mut().ok_or("DaprRequest.invoke_binding_sql make error")?;
+
+    let inner_context = context.inner_context.clone().ok_or("inner context not exist")?;
+
+    let id = &inner_context.id.ok_or("user id not found")?;
+
+    let operation = SqlOperation::Query;
+    invoke_binding_sql.operation = operation.clone();
+    invoke_binding_sql.sqls = trans_sql_info(
+        vec![(
+            String::from(
+                "select
+    r.id as rel_id
+from
+    public.rel_user_app_role r, public.role l, public.app_version v
+where
+    l.id = r.role_id
+    and v.app_id = r.app_id
+    and l.code != 'StandBy'
+    and r.user_id = ?
+    and v.id = ?;
+",
+            ),
+            vec![
+                rbs::Value::I64(id.to_owned().parse()?),
                 rbs::Value::I64(context.input.clone().ok_or("input param not found")?.id.ok_or("id not found")?),
             ],
             false,
@@ -178,10 +338,10 @@ where
     Ok(set_dapr_req(context, dapr_req_ins, execute_name)?)
 }
 
-pub fn post_check_user_for_query_by_id(
-    mut context: ContextWrapper<DBStorageModel, StorageModelInfo, UserWithIdSid>,
-) -> HttpResult<ContextWrapper<DBStorageModel, StorageModelInfo, UserWithIdSid>> {
-    let execute_name = "query_app_info";
+pub fn post_check_permission_for_env_prepare(
+    mut context: ContextWrapper<AppVersion, EmptyOutPut, UserWithIdSid>,
+) -> HttpResult<ContextWrapper<AppVersion, EmptyOutPut, UserWithIdSid>> {
+    let execute_name = "query_rel_exist";
     let (_, res, _) = find_dapr_execute(&mut context.exec, execute_name)?;
 
     let response = res
@@ -198,37 +358,98 @@ pub fn post_check_user_for_query_by_id(
         )));
     }
 
-    let mut c_t = context.inner_context.clone().ok_or("inner context not found")?;
-    c_t.app_code = Some(res[0].app_code.to_owned().ok_or("app code not found")?);
-    c_t.app_version = Some(res[0].app_version.to_owned().ok_or("app version not found")?);
-
-    context.inner_context = Some(c_t);
-
     Ok(context)
 }
 
-pub fn pre_query_one_by_id_sql(
-    context: ContextWrapper<DBStorageModel, StorageModelInfo, UserWithIdSid>,
-) -> HttpResult<ContextWrapper<DBStorageModel, StorageModelInfo, UserWithIdSid>> {
-    let execute_name = "query_by_id";
+pub fn pre_prepare_env(
+    mut context: ContextWrapper<AppVersion, EmptyOutPut, UserWithIdSid>,
+) -> HttpResult<ContextWrapper<AppVersion, EmptyOutPut, UserWithIdSid>> {
+    let execute_name = "query_by_app_version_id";
+    let (_, _, de_res) = find_dapr_execute(&mut context.exec, execute_name)?;
 
-    let dapr_config = find_dapr_config("db-sm")?;
-    let mut dapr_req_ins = DaprRequest::make_invoke_binding_sql(&dapr_config)?;
-    let invoke_binding_sql = dapr_req_ins.invoke_binding_sql.as_mut().ok_or("DaprRequest.invoke_binding_sql make error")?;
+    let de_res = de_res.as_mut().ok_or(util::gen_resp_err(DATA_NOT_FOUND, None))?;
+    if de_res.is_empty() {
+        return Err(Box::new(util::gen_resp_err(DATA_NOT_FOUND, None)));
+    }
+    let app_info = de_res[0].downcast_mut::<AppCodeAndVersion>().ok_or("downcast error")?;
+    let app_code = app_info.code.clone().ok_or("app code not found")?;
+    let app_version = app_info.version.clone().ok_or("app version not found")?;
+    let app_domain = app_info.domain.clone().ok_or("app domain not found")?;
 
-    let id = context.input.clone().ok_or("input not exist")?.id.ok_or("id not exist")?;
+    let faas_namespace = format!("{}-{}", app_code, app_version.replace(".", "-"));
+    let mid_namespace = format!("{}-{}-mid", app_code, app_version.replace(".", "-"));
 
-    let operation = SqlOperation::Query;
-    invoke_binding_sql.operation = operation.clone();
-    invoke_binding_sql.sqls = trans_sql_info(vec![DBStorageModel::select_by_column("id", id)?], operation.clone(), &dapr_config)?;
+    let execute_name = "prepare_env";
+
+    let dapr_config = find_dapr_config("app-version-map-builder-svc")?;
+    let mut dapr_req_ins = DaprRequest::make_invoke_binding(&dapr_config)?;
+    let invoke_binding = dapr_req_ins.invoke_binding.as_mut().ok_or("DaprRequest.invoke_binding make error")?;
+
+    invoke_binding.operation = String::from("post");
+    let mut metadata = HashMap::<String, String>::new();
+    metadata.insert(String::from("path"), String::from("/app"));
+    invoke_binding.metadata = metadata;
+
+    let mut target: AppInMapBuilder = Default::default();
+    target.name = Some(app_code);
+    target.version = Some(app_version);
+    target.namespaces = vec![faas_namespace];
+    target.rq_namespaces = vec![mid_namespace];
+    target.domains = vec![app_domain];
+
+    invoke_binding.data = serde_json::to_vec(&target)?;
 
     Ok(set_dapr_req(context, dapr_req_ins, execute_name)?)
 }
 
-pub fn post_query_one_by_id_sql(
-    mut context: ContextWrapper<DBStorageModel, StorageModelInfo, UserWithIdSid>,
-) -> HttpResult<ContextWrapper<DBStorageModel, StorageModelInfo, UserWithIdSid>> {
-    let execute_name = "query_by_id";
+pub fn post_prepare_env(
+    mut context: ContextWrapper<AppVersion, EmptyOutPut, UserWithIdSid>,
+) -> HttpResult<ContextWrapper<AppVersion, EmptyOutPut, UserWithIdSid>> {
+    context.output = Some(EmptyOutPut {});
+
+    Ok(context)
+}
+
+pub fn pre_query_by_app_version_id(
+    context: ContextWrapper<AppVersion, EmptyOutPut, UserWithIdSid>,
+) -> HttpResult<ContextWrapper<AppVersion, EmptyOutPut, UserWithIdSid>> {
+    let execute_name = "query_by_app_version_id";
+
+    let dapr_config = find_dapr_config("app-version")?;
+    let mut dapr_req_ins = DaprRequest::make_invoke_binding_sql(&dapr_config)?;
+    let invoke_binding_sql = dapr_req_ins.invoke_binding_sql.as_mut().ok_or("DaprRequest.invoke_binding_sql make error")?;
+
+    let operation = SqlOperation::Query;
+    invoke_binding_sql.operation = operation.clone();
+    invoke_binding_sql.sqls = trans_sql_info(
+        vec![(
+            String::from(
+                "select
+    p.code,
+    v.version,
+    p.domain
+from
+    public.app p, public.app_version v
+where
+    p.id = v.app_id
+    and v.id = ?;",
+            ),
+            vec![rbs::Value::I64(context.input.clone().ok_or("input param not found")?.id.ok_or("id not found")?)],
+            false,
+            None,
+            None,
+        )],
+        operation.clone(),
+        &dapr_config,
+    )?;
+
+    Ok(set_dapr_req(context, dapr_req_ins, execute_name)?)
+}
+
+pub fn post_query_by_app_version_id(
+    mut context: ContextWrapper<AppVersion, EmptyOutPut, UserWithIdSid>,
+) -> HttpResult<ContextWrapper<AppVersion, EmptyOutPut, UserWithIdSid>> {
+    let execute_name = "query_by_app_version_id";
     let (_, res, _) = find_dapr_execute(&mut context.exec, execute_name)?;
 
     let response = res
@@ -241,208 +462,10 @@ pub fn post_query_one_by_id_sql(
     }
 
     let first = response.responses.first().unwrap();
-    let res = de_sql_result_implicit_first::<DBStorageModel>(&first.data, &first.output_columns, DBStorageModel::enum_convert)?;
+    let res = de_sql_result_implicit_first::<AppCodeAndVersion>(&first.data, &first.output_columns, AppCodeAndVersion::enum_convert)?;
 
-    let mut c_t = context.inner_context.clone().ok_or("inner context not found")?;
-    c_t.db_database_id = Some(res.db_database_id.clone().ok_or("db database id not found")?);
-    c_t.sm_name = Some(res.name.clone().ok_or("sm name not found")?);
+    let mut dapr_res = Vec::<Box<dyn DaprBody>>::new();
+    dapr_res.push(Box::new(res));
 
-    context.inner_context = Some(c_t);
-
-    Ok(context)
-}
-
-pub fn pre_query_all_file(
-    context: ContextWrapper<DBStorageModel, StorageModelInfo, UserWithIdSid>,
-) -> HttpResult<ContextWrapper<DBStorageModel, StorageModelInfo, UserWithIdSid>> {
-    let execute_name = "query_all_files";
-
-    let dapr_config = find_dapr_config("db-sm-minio")?;
-    let mut dapr_req_ins = DaprRequest::make_invoke_binding(&dapr_config)?;
-    let invoke_binding = dapr_req_ins.invoke_binding.as_mut().ok_or("DaprRequest.invoke_binding make error")?;
-
-    let db_database_id = context
-        .input
-        .clone()
-        .ok_or("input not exist")?
-        .db_database_id
-        .ok_or("db database id not exist")?;
-
-    invoke_binding.operation = String::from("list");
-    let mut data = HashMap::<String, String>::new();
-    data.insert(
-        String::from("prefix"),
-        format!(
-            "{}/{}/StorageModel/{}-",
-            context
-                .inner_context
-                .clone()
-                .ok_or("inner context not found")?
-                .app_code
-                .ok_or("app code not found")?,
-            context
-                .inner_context
-                .clone()
-                .ok_or("inner context not found")?
-                .app_version
-                .ok_or("app version not found")?,
-            db_database_id
-        ),
-    );
-
-    let json_bytes = serde_json::json!(data).to_string().as_bytes().to_vec();
-    invoke_binding.data = json_bytes;
-
-    Ok(set_dapr_req(context, dapr_req_ins, execute_name)?)
-}
-
-pub async fn post_query_all_file(
-    mut context: ContextWrapper<DBStorageModel, StorageModelInfo, UserWithIdSid>,
-) -> HttpResult<ContextWrapper<DBStorageModel, StorageModelInfo, UserWithIdSid>> {
-    let execute_name = "query_all_files";
-    let (_, res, _) = find_dapr_execute(&mut context.exec, execute_name)?;
-
-    let response = res
-        .invoke_binding
-        .clone()
-        .ok_or(format!("execute '{}' of invoke_binding response not found", execute_name))?;
-
-    if response.data.is_empty() {
-        return Err(Box::new(util::gen_resp_err(DATA_NOT_FOUND, None)));
-    }
-    println!("response data from minio: {}", String::from_utf8_lossy(&response.data));
-
-    let object_list = serde_json::from_slice::<ObjectList>(&response.data)?;
-
-    let mut dsls = Vec::<StorageModelInfo>::new();
-
-    for e in object_list.Contents {
-        let key = e.Key.ok_or("file key not found")?;
-
-        let dapr_config = find_dapr_config("db-sm-minio")?;
-
-        let mut dapr_req_ins = DaprRequest::make_invoke_binding(&dapr_config)?;
-        let invoke_binding = dapr_req_ins.invoke_binding.as_mut().ok_or("DaprRequest.invoke_binding make error")?;
-
-        let mut metadata = HashMap::<String, String>::new();
-        metadata.insert(String::from("key"), key);
-
-        let response = get_dapr_client()
-            .await?
-            .invoke_binding(invoke_binding.name.clone(), vec![], metadata, String::from("get"))
-            .await;
-
-        debug!("invoke dapr binding response: {:?}", response);
-
-        if let Err(err) = response {
-            return Err(Box::new(util::gen_resp_err(DAPR_REQUEST_FAIL, Some(err.to_string()))));
-        }
-        let response = response.unwrap();
-
-        let dsl = serde_json::from_slice::<StorageModelInfo>(&response.data)?;
-        dsls.push(dsl);
-    }
-
-    context.outputs = dsls;
-
-    Ok(context)
-}
-
-pub fn pre_query_one_by_id(
-    context: ContextWrapper<DBStorageModel, StorageModelInfo, UserWithIdSid>,
-) -> HttpResult<ContextWrapper<DBStorageModel, StorageModelInfo, UserWithIdSid>> {
-    let execute_name = "query_by_id";
-
-    let dapr_config = find_dapr_config("db-sm-minio")?;
-    let mut dapr_req_ins = DaprRequest::make_invoke_binding(&dapr_config)?;
-    let invoke_binding = dapr_req_ins.invoke_binding.as_mut().ok_or("DaprRequest.invoke_binding make error")?;
-
-    invoke_binding.operation = String::from("list");
-    let mut data = HashMap::<String, String>::new();
-    data.insert(
-        String::from("prefix"),
-        format!(
-            "{}/{}/StorageModel/{}-{}.json",
-            context
-                .inner_context
-                .clone()
-                .ok_or("inner context not found")?
-                .app_code
-                .ok_or("app code not found")?,
-            context
-                .inner_context
-                .clone()
-                .ok_or("inner context not found")?
-                .app_version
-                .ok_or("app version not found")?,
-            context
-                .inner_context
-                .clone()
-                .ok_or("inner context not exist")?
-                .db_database_id
-                .ok_or("db database id not exist")?,
-            context
-                .inner_context
-                .clone()
-                .ok_or("inner context not found")?
-                .sm_name
-                .ok_or("sm name not found")?,
-        ),
-    );
-
-    let json_bytes = serde_json::json!(data).to_string().as_bytes().to_vec();
-    invoke_binding.data = json_bytes;
-
-    Ok(set_dapr_req(context, dapr_req_ins, execute_name)?)
-}
-
-pub async fn post_query_one_by_id(
-    mut context: ContextWrapper<DBStorageModel, StorageModelInfo, UserWithIdSid>,
-) -> HttpResult<ContextWrapper<DBStorageModel, StorageModelInfo, UserWithIdSid>> {
-    let execute_name = "query_by_id";
-    let (_, res, _) = find_dapr_execute(&mut context.exec, execute_name)?;
-
-    let response = res
-        .invoke_binding
-        .clone()
-        .ok_or(format!("execute '{}' of invoke_binding response not found", execute_name))?;
-
-    if response.data.is_empty() {
-        return Err(Box::new(util::gen_resp_err(DATA_NOT_FOUND, None)));
-    }
-    println!("response data from minio: {}", String::from_utf8_lossy(&response.data));
-
-    let object_list = serde_json::from_slice::<ObjectList>(&response.data)?;
-
-    if object_list.Contents.len() != 1 {
-        return Err(Box::new(util::gen_resp_err(DATA_NOT_FOUND, None)));
-    }
-
-    let key = object_list.Contents[0].Key.clone().ok_or("file key not found")?;
-
-    let dapr_config = find_dapr_config("db-sm-minio")?;
-
-    let mut dapr_req_ins = DaprRequest::make_invoke_binding(&dapr_config)?;
-    let invoke_binding = dapr_req_ins.invoke_binding.as_mut().ok_or("DaprRequest.invoke_binding make error")?;
-
-    let mut metadata = HashMap::<String, String>::new();
-    metadata.insert(String::from("key"), key);
-
-    let response = get_dapr_client()
-        .await?
-        .invoke_binding(invoke_binding.name.clone(), vec![], metadata, String::from("get"))
-        .await;
-
-    debug!("invoke dapr binding response: {:?}", response);
-
-    if let Err(err) = response {
-        return Err(Box::new(util::gen_resp_err(DAPR_REQUEST_FAIL, Some(err.to_string()))));
-    }
-    let response = response.unwrap();
-
-    let dsl = serde_json::from_slice::<StorageModelInfo>(&response.data)?;
-
-    context.output = Some(dsl);
-
-    Ok(context)
+    Ok(set_dapr_res(context, dapr_res, execute_name)?)
 }
