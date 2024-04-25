@@ -86,9 +86,6 @@ async fn env_prepare(params: &Params) -> HttpResult<IfRes<EmptyOutPut>> {
 async fn main() -> HttpResult<()> {
     init_log();
 
-    // start_http::<ForConfig>(8080).await
-    // start_grpc::<ForConfig>(8088).await
-
     start_http_grpc::<ForConfig>(8080, 8088).await
 }
 
