@@ -106,7 +106,7 @@ income_param! {
     (ENV_PREPARE, [(app_id, 2, Path, Number, true)]);
 }
 
-#[biz_result_handler(1002,<CUSTOM_BIZ_RES, 500, 100241, "custom biz result message">)]
+#[biz_result_handler(1002,<CUSTOM_BIZ_RES, 500, 41, "custom biz result message">)]
 #[uri_handler(QUERY_BY_APP_ID => query_by_app_id, INSERT => insert, ENV_PREPARE => env_prepare)]
 #[derive(Copy, Clone)]
 struct ForConfig();
