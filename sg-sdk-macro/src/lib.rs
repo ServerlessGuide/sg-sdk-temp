@@ -269,7 +269,7 @@ pub fn enum_generate(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
         Err(_) => return input_and_compile_error(input_copy, syn::Error::new(enum_name.span(), "construct token stream error from string")),
     };
 
-    let mut gen_from_token = quote! {
+    let gen_from_token = quote! {
         impl FromStr for #enum_name {
             type Err = ResponseError;
             fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
@@ -292,7 +292,7 @@ pub fn enum_generate(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
         Err(_) => return input_and_compile_error(input_copy, syn::Error::new(enum_name.span(), "construct token stream error from string")),
     };
 
-    let mut to_string_token = quote! {
+    let to_string_token = quote! {
         impl ToString for #enum_name {
             fn to_string(&self) -> String {
                 match self {
@@ -313,7 +313,7 @@ pub fn enum_generate(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
         Err(_) => return input_and_compile_error(input_copy, syn::Error::new(enum_name.span(), "construct token stream error from string")),
     };
 
-    let mut lit_val_to_i32_token = quote! {
+    let lit_val_to_i32_token = quote! {
         impl #enum_name {
             pub fn lit_val_to_i32(value: &str) -> Option<i32> {
                 match value {
@@ -335,7 +335,7 @@ pub fn enum_generate(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
         Err(_) => return input_and_compile_error(input_copy, syn::Error::new(enum_name.span(), "construct token stream error from string")),
     };
 
-    let mut to_i32_token = quote! {
+    let to_i32_token = quote! {
         impl #enum_name {
             pub fn to_i32(&self) -> i32 {
                 match self {
