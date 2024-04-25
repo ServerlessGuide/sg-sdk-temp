@@ -9,7 +9,6 @@ use dapr::{
 };
 use hyper::{body::Incoming, server::conn::http1, service::service_fn, Request, Response};
 use hyper_util::rt::TokioIo;
-use model_macro::ModelTrait;
 use prost::Message;
 use serde::Serialize;
 use tokio::net::TcpListener;
@@ -28,7 +27,10 @@ use crate::{
     GrpcResult, HttpResult, *,
 };
 
-use self::model::{GrpcRequestDispatcherTrait, HttpRequestDispatcherTrait};
+use self::{
+    model::{GrpcRequestDispatcherTrait, HttpRequestDispatcherTrait},
+    traits::ModelTrait,
+};
 
 pub async fn start_http<HttpDispatcher: HttpRequestDispatcherTrait + Send + Copy + 'static>(port: u16) -> HttpResult<()> {
     let http_addr = SocketAddr::from(([0, 0, 0, 0], port));

@@ -4,17 +4,17 @@ use dapr::dapr::dapr::proto::{common::v1::*, runtime::v1::*};
 use downcast_rs::{impl_downcast, Downcast};
 use hyper::Method;
 use hyper::Response;
-use model_macro::ModelTrait;
-use model_macro::Validator;
-use model_macro_derive::{Model, ModelValidate};
 use prost::Message;
 use serde::{Deserialize, Serialize};
+use sg_sdk_macro::Model;
+use sg_sdk_macro::ModelValidate;
 use std::{collections::HashMap, fmt::Debug, str::FromStr};
 use validator::Validate;
 use validator_derive::Validate;
 
 use crate::{
     inner_biz_result::*,
+    traits::*,
     util::{self, gen_resp_err, ResponseError},
     HttpResult, *,
 };

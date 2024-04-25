@@ -1,6 +1,7 @@
 use std::{collections::HashMap, str::FromStr};
 
 use crate::model::{DaprBody, InvokeBindingSqlResponse, SqlOperation, SqlResponse};
+use crate::traits::ModelTrait;
 use crate::{
     config::get_dapr_client,
     inner_biz_result::*,
@@ -13,7 +14,6 @@ use dapr::dapr::dapr::proto::{common::v1::InvokeResponse, runtime::v1::*};
 use futures_util::future::join;
 use http_body_util::BodyExt;
 use hyper::{header, Method, StatusCode};
-use model_macro::ModelTrait;
 use tracing::{debug, error, info, trace, warn};
 
 pub fn check_env_value(value: &str) -> HttpResult<&String> {

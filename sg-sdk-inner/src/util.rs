@@ -17,7 +17,6 @@ use hyper::{
     Method, Request, Response, StatusCode,
 };
 use hyper_util::rt::TokioIo;
-use model_macro::{ModelTrait, Validator};
 use prost::Message;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -35,6 +34,8 @@ use tokio::net::TcpStream;
 use tonic::Status;
 use tracing::{debug, error, info, trace, warn};
 use validator::Validate;
+
+use self::traits::{ModelTrait, Validator};
 
 #[derive(Debug, Clone)]
 pub struct ResponseError {

@@ -1,5 +1,233 @@
 use quote::{quote, ToTokens};
-use syn::{parse_macro_input, spanned::Spanned, Data, DataEnum, DataStruct, DeriveInput, Fields, FieldsNamed, Meta, Token};
+use syn::{parse_macro_input, spanned::Spanned, Data, DataEnum, DataStruct, DeriveInput, Fields, FieldsNamed, Meta, Token, Type};
+
+#[proc_macro_derive(ModelValidate)]
+pub fn derive_model_validator(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    let name = input.ident;
+
+    let expanded = quote! {
+        impl Validator for #name {
+            fn checkout(&self) -> std::result::Result<usize, Box<dyn std::error::Error + Send + Sync>> {
+                let checkout = self.validate();
+                println!("checkout: {:#?}", checkout);
+                if let Err(err) = checkout {
+                    println!("err: {}", err.to_string());
+                    return Err(Box::new(ResponseError{biz_res: String::from("FIELD_VALIDATE_FAIL"), message: Some(err.to_string())}));
+                }
+                Ok(0)
+            }
+        }
+    };
+    expanded.into()
+}
+
+#[proc_macro_derive(Model)]
+pub fn derive_model(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    let name = input.ident;
+
+    let data: FieldsNamed = match input.data {
+        Data::Struct(DataStruct { fields: Fields::Named(n), .. }) => n,
+        _ => unimplemented!(),
+    };
+
+    let fields = data.named.iter().filter_map(|field| {
+        let ty = &field.ty;
+        match &field.ident {
+            Some(ident) => Some((ident, ty, inner_for_option(ty))),
+            _ => None,
+        }
+    });
+
+    let target_type = vec![
+        "i8", "u8", "i16", "u16", "i32", "u32", "i64", "u64", "i128", "u128", "isize", "usize", "bool", "f32", "f64", "String", "char", "Option",
+    ];
+
+    let set_field_method = fields.clone().map(|(field_name, ty, option)| match ty {
+        Type::Path(syn::TypePath {
+            path: syn::Path { segments, .. },
+            ..
+        }) if !target_type.contains(&segments[0].ident.to_string().as_str()) => {
+            quote! {}
+        }
+
+        _ => match option {
+            None => quote! {
+                stringify!(#field_name) => {
+                    let field = self.get_field_mut::<#ty>(field_name);
+
+                    if let None = field {
+                        return Err(Box::new(ResponseError{
+                            biz_res: String::from("FIELD_NOT_FOUND"),
+                            message: Some(String::from(format!("field '{}' not found, type {}", stringify!(#field_name), stringify!(#ty)))),
+                        }));
+                    }
+
+                    if value == "null".to_string() {
+                        return Ok(self);
+                    }
+
+                    let parsed = value.parse::<#ty>();
+                    if let Err(_) = parsed {
+                        return Err(Box::new(ResponseError{
+                            biz_res: String::from("VALUE_PARSE_ERROR"),
+                            message: Some(String::from(format!(
+                                "can not parse value '{}' on {} type", stringify!(#field_name), stringify!(#ty)
+                            ))),
+                        }));
+                    }
+                    *field.unwrap() = parsed.unwrap();
+
+                    Ok(self)
+                }
+            },
+
+            Some(field_ty) => match field_ty {
+                Type::Path(syn::TypePath {
+                    path: syn::Path { segments, .. },
+                    ..
+                }) if !target_type.contains(&segments[0].ident.to_string().as_str()) => {
+                    quote! {}
+                }
+
+                _ => quote! {
+                    stringify!(#field_name) => {
+                        let field = self.get_field_mut::<Option<#field_ty>>(field_name);
+
+                        if let None = field {
+                            return Err(Box::new(ResponseError{
+                                biz_res: String::from("FIELD_NOT_FOUND"),
+                                message: Some(String::from(format!("field '{}' not found, type {}", stringify!(#field_name), stringify!(#field_ty)))),
+                            }));
+                        }
+
+                        if value == "null".to_string() {
+                            *field.unwrap() = None;
+                            return Ok(self);
+                        }
+
+                        let parsed = value.parse::<#field_ty>();
+                        if let Err(_) = parsed {
+                            return Err(Box::new(ResponseError{
+                                biz_res: String::from("VALUE_PARSE_ERROR"),
+                                message: Some(String::from(format!(
+                                    "can not parse value '{}' on {} type", stringify!(#field_name), stringify!(#field_ty)
+                                ))),
+                            }));
+                        }
+                        *field.unwrap() = Some(parsed.unwrap());
+
+                        Ok(self)
+                    }
+                },
+            },
+        },
+    });
+
+    let get_field_str_method = fields.clone().map(|(field_name, ty, option)| match ty {
+        Type::Path(syn::TypePath {
+            path: syn::Path { segments, .. },
+            ..
+        }) if !target_type.contains(&segments[0].ident.to_string().as_str()) => {
+            quote! {}
+        }
+
+        _ => match option {
+            None => quote! {
+                stringify!(#field_name) => {
+                    return Some(self.#field_name.to_string());
+                }
+            },
+
+            Some(field_ty) => match field_ty {
+                Type::Path(syn::TypePath {
+                    path: syn::Path { segments, .. },
+                    ..
+                }) if !target_type.contains(&segments[0].ident.to_string().as_str()) => {
+                    quote! {}
+                }
+
+                _ => quote! {
+                    stringify!(#field_name) => {
+                        let Some(v) = self.#field_name.clone() else {
+                            return None;
+                        };
+                        return Some(v.to_string());
+                    }
+                },
+            },
+        },
+    });
+
+    let expanded = quote! {
+        impl ModelTrait for #name {
+            fn clear_model(&self) -> Self {
+                Default::default()
+            }
+
+            fn new() -> Self {
+                Default::default()
+            }
+
+            fn clone_model(&self) -> Self {
+                self.clone()
+            }
+
+            fn set_field(
+                &mut self,
+                value: String,
+                field_name: &str,
+            ) -> Result<&Self, Box<dyn std::error::Error + Send + Sync>> {
+                match field_name {
+                    #(
+                        #set_field_method
+                    )*
+
+                    _ => {
+                        return Err(Box::new(ResponseError{
+                            biz_res: String::from("FIELD_MATCH_NOTHING"),
+                            message: None,
+                        }));
+                    }
+                }
+            }
+
+            fn get_field_str(&self, field_name: &str) -> Option<String> {
+                match field_name {
+                    #(
+                        #get_field_str_method
+                    )*
+
+                    _ => return None,
+                }
+                None
+            }
+        }
+    };
+    expanded.into()
+}
+
+fn inner_for_option(ty: &Type) -> Option<Type> {
+    match ty {
+        Type::Path(syn::TypePath {
+            path: syn::Path { segments, .. },
+            ..
+        }) if segments[0].ident == "Option" => {
+            let segment = &segments[0];
+
+            match &segment.arguments {
+                syn::PathArguments::AngleBracketed(generic) => match generic.args.first().unwrap() {
+                    syn::GenericArgument::Type(ty) => Some(ty.clone()),
+                    _ => None,
+                },
+                _ => None,
+            }
+        }
+
+        _ => None,
+    }
+}
 
 #[proc_macro_derive(EnumGenerate)]
 pub fn enum_generate(input: proc_macro::TokenStream) -> proc_macro::TokenStream {

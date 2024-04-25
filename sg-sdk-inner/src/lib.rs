@@ -11,14 +11,15 @@ use crate::{
 
 pub mod config;
 pub mod daprs;
+mod inner_biz_result;
 pub mod log;
 pub mod macros;
 pub mod model;
 pub mod nullable_to_vec;
 pub mod start;
 pub mod stringify_on_num;
+pub mod traits;
 pub mod util;
-mod inner_biz_result;
 
 pub mod body {
     use http_body_util::{Either, Empty, Full};
