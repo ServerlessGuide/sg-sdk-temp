@@ -1,9 +1,104 @@
-use proc_macro::TokenStream;
-use quote::quote;
-use syn::Token;
+use quote::{quote, ToTokens};
+use syn::{parse_macro_input, spanned::Spanned, Data, DataStruct, DeriveInput, Fields, FieldsNamed, Meta, Token};
+
+#[proc_macro_derive(EnumFieldsConvert)]
+pub fn enum_convert_for_sql(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    let input_copy = input.clone();
+    let derive_input = parse_macro_input!(input_copy as DeriveInput);
+
+    let struct_name = derive_input.ident.clone();
+
+    let fields: FieldsNamed = match derive_input.data {
+        Data::Struct(DataStruct { fields: Fields::Named(n), .. }) => n,
+        _ => return input_and_compile_error(input, syn::Error::new(derive_input.span(), "can only be used on struct")),
+    };
+
+    let mut enum_fields = Vec::<(syn::Ident, String)>::new();
+
+    for field in fields.named {
+        let Some(field_name) = field.ident else {
+            continue;
+        };
+
+        for attr in field.attrs {
+            if !attr.path().is_ident("prost") {
+                continue;
+            }
+
+            match attr.meta {
+                Meta::List(mnv) => match mnv.tokens.clone().into_iter().nth(0) {
+                    Some(first) => {
+                        let Ok(ident) = syn::parse::<syn::Ident>(first.into_token_stream().into()) else {
+                            continue;
+                        };
+
+                        if ident.to_string() == String::from("enumeration") {
+                            let Some(enum_name) = mnv.tokens.into_iter().nth(2) else {
+                                continue;
+                            };
+
+                            let Ok(lit) = syn::parse::<syn::LitStr>(enum_name.into_token_stream().into()) else {
+                                continue;
+                            };
+
+                            enum_fields.push((field_name.clone(), lit.value()));
+                        }
+                    }
+                    None => {
+                        continue;
+                    }
+                },
+                _ => {
+                    continue;
+                }
+            }
+        }
+    }
+
+    let mut enum_field_names = Vec::<String>::new();
+    let mut pattern_branches = Vec::<String>::new();
+    enum_fields.iter().for_each(|(field_name, enum_name)| {
+        enum_field_names.push(format!("\"{}\"", field_name));
+        pattern_branches.push(format!("\"{}\" => Ok((true, {}::lit_val_to_i32(f_value))),", field_name, enum_name));
+    });
+
+    let enum_field_names_str = enum_field_names.join(",");
+    let pattern_branches_str = pattern_branches.join("\n");
+
+    let enum_field_names_tokens: proc_macro2::TokenStream = match syn::parse_str(&enum_field_names_str) {
+        Ok(token) => token,
+        Err(_) => return input_and_compile_error(input, syn::Error::new(struct_name.span(), "construct token stream error from string")),
+    };
+
+    let pattern_branches_tokens: proc_macro2::TokenStream = match syn::parse_str(&pattern_branches_str) {
+        Ok(token) => token,
+        Err(_) => return input_and_compile_error(input, syn::Error::new(struct_name.span(), "construct token stream error from string")),
+    };
+
+    let gen = quote! {
+        impl #struct_name {
+            pub fn enum_convert(f_name: &str, f_value: &str) -> HttpResult<(bool, Option<i32>)> {
+                let enum_flds = [#enum_field_names_tokens].to_vec();
+                if enum_flds.contains(&f_name) {
+                    match f_name {
+                        #pattern_branches_tokens
+                        _ => Err(Box::new(gen_resp_err(
+                            ENUM_NOT_FOUND,
+                            Some(format!("enum field {} not found", f_name)),
+                        ))),
+                    }
+                } else {
+                    Ok((false, None))
+                }
+            }
+        }
+    };
+
+    gen.into()
+}
 
 #[proc_macro_derive(Dapr)]
-pub fn dapr_body(input: TokenStream) -> TokenStream {
+pub fn dapr_body(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let ast = match syn::parse::<syn::ItemStruct>(input.clone()) {
         Ok(ast) => ast,
         Err(err) => return input_and_compile_error(input, err),
@@ -17,7 +112,7 @@ pub fn dapr_body(input: TokenStream) -> TokenStream {
 }
 
 #[proc_macro_attribute]
-pub fn biz_result_handler(args: TokenStream, input: TokenStream) -> TokenStream {
+pub fn biz_result_handler(args: proc_macro::TokenStream, input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let mut args: BizResultHandlerArgs = match syn::parse(args) {
         Ok(args) => args,
         Err(err) => return input_and_compile_error(input, err),
@@ -70,7 +165,7 @@ pub fn biz_result_handler(args: TokenStream, input: TokenStream) -> TokenStream 
         biz_res.biz_code = new_biz_code;
     });
 
-    let mut tokens: TokenStream = format!("biz_result!({}, {});", ast.ident.to_string(), args.to_string(),)
+    let mut tokens: proc_macro::TokenStream = format!("biz_result!({}, {});", ast.ident.to_string(), args.to_string(),)
         .parse()
         .expect("parse biz result handler content to token stream error");
 
@@ -80,7 +175,7 @@ pub fn biz_result_handler(args: TokenStream, input: TokenStream) -> TokenStream 
 }
 
 #[proc_macro_attribute]
-pub fn uri_handler(args: TokenStream, input: TokenStream) -> TokenStream {
+pub fn uri_handler(args: proc_macro::TokenStream, input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let args: URIHandlerArgs = match syn::parse(args) {
         Ok(args) => args,
         Err(err) => return input_and_compile_error(input, err),
@@ -91,7 +186,7 @@ pub fn uri_handler(args: TokenStream, input: TokenStream) -> TokenStream {
         Err(err) => return input_and_compile_error(input, err),
     };
 
-    let mut tokens: TokenStream = format!(
+    let mut tokens: proc_macro::TokenStream = format!(
         "generate_http_dispatcher!({}, [{}]);\ngenerate_grpc_dispatcher!({}, [{}]);\n",
         ast.ident.to_string(),
         args.to_string(),
@@ -106,8 +201,8 @@ pub fn uri_handler(args: TokenStream, input: TokenStream) -> TokenStream {
     tokens
 }
 
-fn input_and_compile_error(mut item: TokenStream, err: syn::Error) -> TokenStream {
-    let compile_err = TokenStream::from(err.to_compile_error());
+fn input_and_compile_error(mut item: proc_macro::TokenStream, err: syn::Error) -> proc_macro::TokenStream {
+    let compile_err = proc_macro::TokenStream::from(err.to_compile_error());
     item.extend(compile_err);
     item
 }
