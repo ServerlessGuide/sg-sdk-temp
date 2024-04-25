@@ -20,7 +20,7 @@ use crate::{
 
 #[derive(PartialEq, Eq, Serialize, Deserialize, Clone, Reflect)]
 pub struct Res<T> {
-    pub code: i32,
+    pub code: u32,
     pub message: String,
     pub result: Option<T>,
 }

@@ -121,43 +121,6 @@ lazy_static! {
 }
 
 pub async fn init() -> HttpResult<()> {
-    // 注册BizResult
-    register_biz_result!(
-        OK,
-        URI_NOT_MATCH,
-        BODY_PARAMETER_ILLEGAL,
-        CONVERT_TO_MODEL_ERROR,
-        PARAMETER_ILLEGAL,
-        HEADER_NOT_FOUND,
-        PARAM_MAP_PARSE_ERROR,
-        PATH_PARAM_NOT_EXIST,
-        BODY_PARAM_NOT_EXIST,
-        QUERY_PARAM_NOT_EXIST,
-        URL_PARSE_ERROR,
-        DAPR_HTTP_REQ_BUILD_ERROR,
-        DAPR_REQUEST_FAIL,
-        REQUEST_METHOD_NOT_ALLOWED,
-        ENV_PARAMETER_ERROR,
-        DAPR_DATA_ILLEGAL,
-        ENUM_NOT_FOUND,
-        IMPLICIT_RESPONSE_ERROR,
-        BIZ_RESULT_NOT_FOUND,
-        DAPR_CONFIG_NOT_EXIST,
-        EXEC_NAME_NOT_EXIST,
-        DAPR_EXECUTE_NOT_EXIST,
-        QUERY_SQL_IS_NOT_UNIQUE,
-        SQL_NOT_VALID,
-        SQL_NOT_SUPPORT,
-        DATA_NOT_FOUND,
-        SQL_OUT_COLUMNS_IS_EMPTY,
-        DATA_ERROR,
-        AUTH_ERROR,
-        INTERNAL_AUTH_TAG_NOT_SET,
-    );
-
-    // 注册URI，示例：
-    // register_uri!(QUERY_BY_APP_ID, INSERT, ENV_PREPARE);
-
     // 设置接口入参，示例
     // income_param! {
     //     (QUERY_BY_APP_ID, [(app_id, 2, Path, Number, true)]);
@@ -183,6 +146,7 @@ pub async fn init() -> HttpResult<()> {
 
 // 初始化BizResult，这些是固定的BizResult，范围：999900-999999，业务场景不能使用，示例：
 biz_result! {
+    InnerConfigForSelfUse,
     (OK, 200, 999900, "success");
     (URI_NOT_MATCH, 404, 999901, "uri match nothing");
     (BODY_PARAMETER_ILLEGAL, 400, 999902, "body parameter illegal");
@@ -214,3 +178,5 @@ biz_result! {
     (AUTH_ERROR, 401, 999928, "auth error");
     (INTERNAL_AUTH_TAG_NOT_SET, 500, 999929, "internal auth tag not set");
 }
+
+struct InnerConfigForSelfUse();

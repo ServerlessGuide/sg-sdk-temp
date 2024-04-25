@@ -1,35 +1,42 @@
 #[macro_export]
 macro_rules! biz_result {
     (
+        $acceptor:ident,
         $(
-            ($konst:ident, $status_code:expr, $biz_code:expr, $message:expr);
+            ($konst:ident, $status_code:expr, $biz_code:expr, $message:expr)$(;)?
         )*
     ) => {
         $(
             pub const $konst: crate::util::BizResult<'static> = crate::util::BizResult($status_code, $biz_code, $message, stringify!($konst));
         )*
-    }
-}
 
-#[macro_export]
-macro_rules! register_biz_result {
-    ($($konst:ident$(,)?)*) => {
-        $(
-            util::insert_biz_result($konst).await?;
-        )*
+        impl $acceptor {
+            async fn insert_biz_result() -> HttpResult<()> {
+                $(
+                    util::insert_biz_result($konst).await?;
+                )*
+                Ok(())
+            }
+        }
     }
 }
 
 #[macro_export]
 macro_rules! income_param {
     (
+        $acceptor:ident,
         $(
             ($konst:ident,[$(($target:ident,$name:expr,$from:ident,$type:ident,$require:expr)$(,)?)*]);
         )*
     ) => {
-        $(
-            let _ = crate::util::insert_income_param($konst, vec![$((String::from(stringify!($target)),String::from(stringify!($name)),crate::model::ParamFrom::$from,crate::model::ParamType::$type,$require),)*]).await;
-        )*
+        impl $acceptor {
+            async fn insert_income_param() -> HttpResult<()> {
+                $(
+                    let _ = crate::util::insert_income_param($konst, vec![$((String::from(stringify!($target)),String::from(stringify!($name)),crate::model::ParamFrom::$from,crate::model::ParamType::$type,$require),)*]).await;
+                )*
+                Ok(())
+            }
+        }
     }
 }
 
@@ -52,6 +59,7 @@ macro_rules! skip_auth_uri {
 #[macro_export]
 macro_rules! uri {
     (
+        $acceptor:ident,
         $(
             ($konst:ident, $method:ident, $path:expr, $action:ident, $bulk_input:expr, $bulk_output:expr);
         )*
@@ -59,15 +67,15 @@ macro_rules! uri {
         $(
             pub const $konst: URI = URI(hyper::Method::$method, $path, stringify!($konst), crate::model::Action::$action, $bulk_input, $bulk_output);
         )*
-    }
-}
 
-#[macro_export]
-macro_rules! register_uri {
-    ($($konst:ident$(,)?)*) => {
-        $(
-            util::insert_uri($konst).await?;
-        )*
+        impl $acceptor {
+            async fn insert_uri() -> HttpResult<()> {
+                $(
+                    util::insert_uri($konst).await?;
+                )*
+                Ok(())
+            }
+        }
     }
 }
 

@@ -280,14 +280,14 @@ pub async fn insert_uri(uri: URI) -> HttpResult<()> {
 }
 
 #[derive(PartialEq, Eq, Debug, Hash, Clone, Copy)]
-pub struct BizResult<'a>(pub u16, pub i32, pub &'a str, pub &'a str);
+pub struct BizResult<'a>(pub u16, pub u32, pub &'a str, pub &'a str);
 
 impl BizResult<'static> {
     pub fn status_code(&self) -> u16 {
         self.0
     }
 
-    pub fn biz_code(&self) -> i32 {
+    pub fn biz_code(&self) -> u32 {
         self.1
     }
 
