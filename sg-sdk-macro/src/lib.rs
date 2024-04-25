@@ -178,7 +178,7 @@ pub fn derive_model(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                 &mut self,
                 value: String,
                 field_name: &str,
-            ) -> Result<&Self, Box<dyn std::error::Error + Send + Sync>> {
+            ) -> std::result::Result<&Self, Box<dyn std::error::Error + Send + Sync>> {
                 match field_name {
                     #(
                         #set_field_method
@@ -272,7 +272,7 @@ pub fn enum_generate(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
     let mut gen_from_token = quote! {
         impl FromStr for #enum_name {
             type Err = ResponseError;
-            fn from_str(s: &str) -> Result<Self, Self::Err> {
+            fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
                 match s {
                     #from_str_token_part
                     _ => Err(gen_resp_err(ENUM_NOT_FOUND, None)),
@@ -357,7 +357,7 @@ mod stringify_enum_{{enum_name_str_lowercase}}_option {
 
     use super::{{enum_name_str}};
 
-    pub fn serialize<T, S>(value: &Option<T>, serializer: S) -> Result<S::Ok, S::Error>
+    pub fn serialize<T, S>(value: &Option<T>, serializer: S) -> std::result::Result<S::Ok, S::Error>
     where
         T: Display,
         S: Serializer,
@@ -374,7 +374,7 @@ mod stringify_enum_{{enum_name_str_lowercase}}_option {
         }
     }
 
-    pub fn deserialize<'de, T, D>(deserializer: D) -> Result<Option<T>, D::Error>
+    pub fn deserialize<'de, T, D>(deserializer: D) -> std::result::Result<Option<T>, D::Error>
     where
         T: FromStr,
         T::Err: Display,
@@ -418,7 +418,7 @@ mod stringify_enum_{{enum_name_str_lowercase}}_prim {
 
     use super::{{enum_name_str}};
 
-    pub fn serialize<T, S>(value: &T, serializer: S) -> Result<S::Ok, S::Error>
+    pub fn serialize<T, S>(value: &T, serializer: S) -> std::result::Result<S::Ok, S::Error>
     where
         T: Display,
         S: Serializer,
@@ -430,7 +430,7 @@ mod stringify_enum_{{enum_name_str_lowercase}}_prim {
         serializer.collect_str(&enum_type.to_string())
     }
 
-    pub fn deserialize<'de, T, D>(deserializer: D) -> Result<T, D::Error>
+    pub fn deserialize<'de, T, D>(deserializer: D) -> std::result::Result<T, D::Error>
     where
         T: FromStr,
         T::Err: Display,
@@ -468,7 +468,7 @@ mod stringify_enum_{{enum_name_str_lowercase}}_vec {
 
     use super::{{enum_name_str}};
 
-    pub fn serialize<T, S>(value: &Vec<T>, serializer: S) -> Result<S::Ok, S::Error>
+    pub fn serialize<T, S>(value: &Vec<T>, serializer: S) -> std::result::Result<S::Ok, S::Error>
     where
         T: Display,
         S: Serializer,
@@ -484,7 +484,7 @@ mod stringify_enum_{{enum_name_str_lowercase}}_vec {
         serializer.collect_seq(seq)
     }
 
-    pub fn deserialize<'de, T, D>(deserializer: D) -> Result<Vec<T>, D::Error>
+    pub fn deserialize<'de, T, D>(deserializer: D) -> std::result::Result<Vec<T>, D::Error>
     where
         T: FromStr,
         T::Err: Display,
@@ -533,7 +533,7 @@ mod stringify_enum_{{enum_name_str_lowercase}}_map {
 
     use super::{{enum_name_str}};
 
-    pub fn serialize<K, V, S>(value: &HashMap<K, V>, serializer: S) -> Result<S::Ok, S::Error>
+    pub fn serialize<K, V, S>(value: &HashMap<K, V>, serializer: S) -> std::result::Result<S::Ok, S::Error>
     where
         K: Eq + PartialEq + Hash + Clone + Serialize,
         V: Display,
@@ -550,7 +550,7 @@ mod stringify_enum_{{enum_name_str_lowercase}}_map {
         serializer.collect_map(map)
     }
 
-    pub fn deserialize<'de, K, V, D>(deserializer: D) -> Result<HashMap<K, V>, D::Error>
+    pub fn deserialize<'de, K, V, D>(deserializer: D) -> std::result::Result<HashMap<K, V>, D::Error>
     where
         V: FromStr,
         V::Err: Display,
