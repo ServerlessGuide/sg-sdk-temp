@@ -3,6 +3,7 @@ mod biz_model;
 
 pub use bevy_reflect::{GetField, Reflect};
 pub use biz_model::*;
+use dapr::appcallback::InvokeResponse;
 pub use model_macro::*;
 pub use model_macro_derive::*;
 pub use pipe_trait::*;
@@ -95,10 +96,10 @@ async fn main() -> HttpResult<()> {
         (ENV_PREPARE, [(app_id, 2, Path, Number, true)]);
     }
 
-    // start_http(8080).await
-    // start_grpc(8088).await
+    // start_http::<ForConfig>(8080).await
+    // start_grpc::<ForConfig>(8088).await
 
-    start_http_grpc(8080, 8088).await
+    start_http_grpc::<ForConfig>(8080, 8088).await
 }
 
 biz_result! {(CUSTOM_BIZ_RES, 500, 100241, "custom biz result message");}
@@ -109,5 +110,6 @@ uri! {
     (ENV_PREPARE, GET, "^/app-version/\\d{19}/env-prepare$", Function, false, false);
 }
 
-#[uri_handler(QUERY_BY_APP_ID => query_one_by_id, INSERT => insert, ENV_PREPARE => env_prepare)]
+#[uri_handler(QUERY_BY_APP_ID => query_by_app_id, INSERT => insert, ENV_PREPARE => env_prepare)]
+#[derive(Copy, Clone)]
 struct ForConfig();

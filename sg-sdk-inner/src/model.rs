@@ -1324,8 +1324,10 @@ pub struct JwtToken {
 
 impl DaprBody for JwtToken {}
 
-pub trait RequestDispatcherTrait {
-    fn do_http_dispatch(params: Params) -> HttpResult<Response<body::Body>>;
+pub trait HttpRequestDispatcherTrait {
+    fn do_http_dispatch(params: Params) -> impl std::future::Future<Output = HttpResult<Response<body::Body>>> + Send;
+}
 
-    fn do_grpc_dispatch(params: Params) -> GrpcResult<tonic::Response<InvokeResponse>>;
+pub trait GrpcRequestDispatcherTrait {
+    fn do_grpc_dispatch(params: Params) -> impl std::future::Future<Output = GrpcResult<tonic::Response<InvokeResponse>>> + Send;
 }

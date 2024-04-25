@@ -28,9 +28,12 @@ async_once = { version = "0.2" }
 http-body-util = { version = "0.1" }
 tracing = { version = "0.1", features = ["attributes"] }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-base64 = { version = "0.21" }
+tonic = { git = "https://github.com/TaurusM/tonic.git", branch = "main" }
+dapr = { git = "https://github.com/TaurusM/dapr-rust-sdk.git", branch = "main" }
 sg-sdk-inner = { path = "../sg-sdk-inner" }
 sg-sdk-macro = { path = "../sg-sdk-macro" }
+
+base64 = { version = "0.21" }
 
 [profile.release]
 opt-level = 3

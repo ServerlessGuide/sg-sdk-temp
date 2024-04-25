@@ -22,12 +22,14 @@ use tracing::{error, info};
 
 use crate::{
     body,
-    model::{IfRes, Params, Res},
+    model::{IfRes, Params},
     util::{self, auth_ict, find_response_auth_header, parse_params_grpc},
     GrpcResult, HttpResult, *,
 };
 
-pub async fn start_http(port: u16) -> HttpResult<()> {
+use self::model::{GrpcRequestDispatcherTrait, HttpRequestDispatcherTrait};
+
+pub async fn start_http<HttpDispatcher: HttpRequestDispatcherTrait + Send + Copy + 'static>(port: u16) -> HttpResult<()> {
     let http_addr = SocketAddr::from(([0, 0, 0, 0], port));
 
     info!("Listening on http port {}", http_addr);
@@ -39,7 +41,7 @@ pub async fn start_http(port: u16) -> HttpResult<()> {
 
             tokio::task::spawn(async move {
                 if let Err(err) = http1::Builder::new()
-                    .serve_connection(TokioIo::new(stream), service_fn(move |req| http_service(req)))
+                    .serve_connection(TokioIo::new(stream), service_fn(move |req| http_service::<HttpDispatcher>(req)))
                     .await
                 {
                     error!("Error serving connection: {:?}", err);
@@ -51,13 +53,13 @@ pub async fn start_http(port: u16) -> HttpResult<()> {
     http_serve.await
 }
 
-pub async fn start_grpc(port: u16) -> HttpResult<()> {
+pub async fn start_grpc<GrpcDispatcher: GrpcRequestDispatcherTrait + Send + Copy + Sync + 'static>(port: u16) -> HttpResult<()> {
     let grpc_addr = SocketAddr::from(([0, 0, 0, 0], port));
 
     info!("Listening on grpc port {}", grpc_addr);
 
     let grpc_serve = async move {
-        let callback_service = GrpcService {};
+        let callback_service = GrpcService::<GrpcDispatcher> { placeholder: None };
 
         Server::builder()
             .add_service(AppCallbackServer::new(callback_service))
@@ -70,13 +72,16 @@ pub async fn start_grpc(port: u16) -> HttpResult<()> {
     grpc_serve.await
 }
 
-pub async fn start_http_grpc(http_port: u16, grpc_port: u16) -> HttpResult<()> {
-    start_http(http_port).await?;
-    start_grpc(grpc_port).await?;
+pub async fn start_http_grpc<OneDispatcher: HttpRequestDispatcherTrait + GrpcRequestDispatcherTrait + Send + Copy + Sync + 'static>(
+    http_port: u16,
+    grpc_port: u16,
+) -> HttpResult<()> {
+    start_http::<OneDispatcher>(http_port).await?;
+    start_grpc::<OneDispatcher>(grpc_port).await?;
     Ok(())
 }
 
-async fn http_service(req: Request<Incoming>) -> HttpResult<Response<body::Body>> {
+async fn http_service<HttpDispatcher: HttpRequestDispatcherTrait + Send + Copy + 'static>(req: Request<Incoming>) -> HttpResult<Response<body::Body>> {
     let params = util::parse_params(req).await;
     let mut params = match params {
         Ok(params) => params,
@@ -92,38 +97,15 @@ async fn http_service(req: Request<Incoming>) -> HttpResult<Response<body::Body>
         }
     };
 
-    let uri_handlers = URI_HANDLERS.read().await;
-    let macro_str = (*uri_handlers)
-        .iter()
-        .map(|(uri_name, fn_name)| format!("({}, {})", uri_name, fn_name))
-        .collect::<Vec<String>>()
-        .join(",");
-
-    // generate_http_uri_handle_branch!(macro_str)
-    match params.uri.as_str() {
-        // $(
-        //     stringify!($uri_name) => handle_http($fn_name(&params).await, &params).await,
-        // )*
-        // "INSERT" => handle_grpc(query_one_by_id(&params).await, &params).await,
-        // "QUERY_ONE_BY_ID" => handle_grpc(query_one_by_id(&params).await, &params),
-        _ => {
-            eprintln!("[request begin] error: uri match nothing");
-            Ok(util::gen_resp(
-                URI_NOT_MATCH.status_code(),
-                Res::<String> {
-                    code: URI_NOT_MATCH.biz_code(),
-                    message: URI_NOT_MATCH.message(),
-                    result: None,
-                },
-            ))
-        }
-    }
+    HttpDispatcher::do_http_dispatch(params).await
 }
 
-pub struct GrpcService {}
+pub struct GrpcService<GrpcDispatcher: GrpcRequestDispatcherTrait + Send + Copy + 'static> {
+    placeholder: Option<GrpcDispatcher>,
+}
 
 #[tonic::async_trait]
-impl AppCallback for GrpcService {
+impl<GrpcDispatcher: GrpcRequestDispatcherTrait + Send + Copy + Sync> AppCallback for GrpcService<GrpcDispatcher> {
     async fn on_invoke(&self, request: tonic::Request<InvokeRequest>) -> GrpcResult<tonic::Response<InvokeResponse>> {
         println!("grpc request: {:?}", &request);
 
@@ -142,14 +124,7 @@ impl AppCallback for GrpcService {
             }
         };
 
-        match params.uri.as_str() {
-            // "INSERT" => handle_grpc(query_one_by_id(&params).await, &params).await,
-            // "QUERY_ONE_BY_ID" => handle_grpc(query_one_by_id(&params).await, &params),
-            _ => {
-                eprintln!("request error: uri match nothing");
-                return GrpcResult::Err(Status::internal(URI_NOT_MATCH.message()));
-            }
-        }
+        GrpcDispatcher::do_grpc_dispatch(params).await
     }
 
     async fn list_topic_subscriptions(&self, _request: tonic::Request<()>) -> GrpcResult<tonic::Response<ListTopicSubscriptionsResponse>> {
@@ -170,7 +145,7 @@ impl AppCallback for GrpcService {
     }
 }
 
-async fn handle_http<T: Serialize + prost::Message + ModelTrait + Default>(
+pub async fn handle_http<T: Serialize + prost::Message + ModelTrait + Default>(
     http_res: HttpResult<IfRes<T>>,
     params: &Params,
 ) -> HttpResult<Response<body::Body>> {
@@ -180,7 +155,10 @@ async fn handle_http<T: Serialize + prost::Message + ModelTrait + Default>(
     }
 }
 
-async fn handle_grpc<T: prost::Message + ModelTrait + Default>(http_res: HttpResult<IfRes<T>>, params: &Params) -> GrpcResult<tonic::Response<InvokeResponse>> {
+pub async fn handle_grpc<T: prost::Message + ModelTrait + Default>(
+    http_res: HttpResult<IfRes<T>>,
+    params: &Params,
+) -> GrpcResult<tonic::Response<InvokeResponse>> {
     match http_res {
         Ok(if_res) => {
             let mut response = tonic::Response::new(InvokeResponse {

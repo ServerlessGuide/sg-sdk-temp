@@ -72,38 +72,47 @@ macro_rules! register_uri {
 }
 
 #[macro_export]
-macro_rules! register_uri_handler {
+macro_rules! generate_http_dispatcher {
     ($acceptor:ident,[$(($uri_name:ident, $fn_name:ident)$(,)?)*]) => {
-        impl $acceptor {
-            $(
-                async fn $fn_name() -> HttpResult<()> {
-                    let mut uri_handlers = URI_HANDLERS.write().await;
-                    uri_handlers.push((stringify!($uri_name).to_string(), stringify!($fn_name).to_string()));
-                    Ok(())
+        impl HttpRequestDispatcherTrait for $acceptor {
+            async fn do_http_dispatch(params: Params) -> HttpResult<hyper::Response<body::Body>> {
+                match params.uri.as_str() {
+                    $(
+                        stringify!($uri_name) => handle_http($fn_name(&params).await, &params).await,
+                    )*
+
+                    _ => {
+                        eprintln!("[request begin] error: uri match nothing");
+                        Ok(util::gen_resp(
+                            URI_NOT_MATCH.status_code(),
+                            Res::<String> {
+                                code: URI_NOT_MATCH.biz_code(),
+                                message: URI_NOT_MATCH.message(),
+                                result: None,
+                            },
+                        ))
+                    }
                 }
-            )*
+            }
         }
     };
 }
 
 #[macro_export]
-macro_rules! generate_http_uri_handle_branch {
-    ($(($uri_name:expr,$fn_name:expr)$(,)?)*) => {
-        match params.uri.as_str() {
-            $(
-                stringify!($uri_name) => handle_http($fn_name(&params).await, &params).await,
-            )*
+macro_rules! generate_grpc_dispatcher {
+    ($acceptor:ident,[$(($uri_name:ident, $fn_name:ident)$(,)?)*]) => {
+        impl GrpcRequestDispatcherTrait for $acceptor {
+            async fn do_grpc_dispatch(params: Params) -> GrpcResult<tonic::Response<InvokeResponse>> {
+                match params.uri.as_str() {
+                    $(
+                        stringify!($uri_name) => handle_grpc($fn_name(&params).await, &params).await,
+                    )*
 
-            _ => {
-                eprintln!("[request begin] error: uri match nothing");
-                Ok(util::gen_resp(
-                    URI_NOT_MATCH.status_code(),
-                    Res::<String> {
-                        code: URI_NOT_MATCH.biz_code(),
-                        message: URI_NOT_MATCH.message(),
-                        result: None,
-                    },
-                ))
+                    _ => {
+                        eprintln!("[request begin] error: uri match nothing");
+                        return GrpcResult::Err(tonic::Status::internal(URI_NOT_MATCH.message()));
+                    }
+                }
             }
         }
     };

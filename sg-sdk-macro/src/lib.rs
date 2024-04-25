@@ -13,7 +13,7 @@ pub fn uri_handler(args: TokenStream, input: TokenStream) -> TokenStream {
         Err(err) => return input_and_compile_error(input, err),
     };
 
-    let mut tokens: TokenStream = format!("register_uri_handler!({}, [{}]);\n", ast.ident.to_string(), args.to_string())
+    let mut tokens: TokenStream = format!("generate_http_dispatcher!({}, [{}]);\ngenerate_grpc_dispatcher!({}, [{}]);\n", ast.ident.to_string(), args.to_string(), ast.ident.to_string(), args.to_string())
         .parse()
         .expect("parse uri handler content to token stream error");
 
