@@ -1,5 +1,375 @@
 use quote::{quote, ToTokens};
-use syn::{parse_macro_input, spanned::Spanned, Data, DataStruct, DeriveInput, Fields, FieldsNamed, Meta, Token};
+use syn::{parse_macro_input, spanned::Spanned, Data, DataEnum, DataStruct, DeriveInput, Fields, FieldsNamed, Meta, Token};
+
+#[proc_macro_derive(EnumGenerate)]
+pub fn enum_generate(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    let input_copy = input.clone();
+    let derive_input = parse_macro_input!(input as DeriveInput);
+
+    let enum_name = derive_input.ident.clone();
+    let enum_name_str = enum_name.to_string();
+    let enum_name_str_lowercase = enum_name.to_string().to_lowercase();
+
+    let variants = match derive_input.data {
+        Data::Enum(DataEnum { variants, .. }) => variants,
+        _ => return input_and_compile_error(input_copy, syn::Error::new(derive_input.span(), "can only be used on enum")),
+    };
+
+    let mut enum_variants: Vec<(syn::Ident, syn::LitInt)> = vec![];
+    for variant in variants.iter().filter(|v| v.discriminant.is_some()) {
+        let enum_variant_ident = variant.ident.clone();
+
+        let syn::Expr::Lit(lit) = variant.discriminant.clone().unwrap().1 else {
+            continue;
+        };
+
+        let syn::Lit::Int(lit_int) = lit.lit else {
+            continue;
+        };
+
+        enum_variants.push((enum_variant_ident, lit_int));
+    }
+
+    let mut from_str: Vec<String> = vec![];
+
+    enum_variants.iter().for_each(|(name, _)| {
+        from_str.push(format!("\"{}\" => Ok({}::{}),", name, enum_name, name));
+    });
+
+    let from_str_token_part: proc_macro2::TokenStream = match syn::parse_str(&from_str.join("\n")) {
+        Ok(token) => token,
+        Err(_) => return input_and_compile_error(input_copy, syn::Error::new(enum_name.span(), "construct token stream error from string")),
+    };
+
+    let mut gen_from_token = quote! {
+        impl FromStr for #enum_name {
+            type Err = ResponseError;
+            fn from_str(s: &str) -> Result<Self, Self::Err> {
+                match s {
+                    #from_str_token_part
+                    _ => Err(gen_resp_err(ENUM_NOT_FOUND, None)),
+                }
+            }
+        }
+    };
+
+    let mut to_string: Vec<String> = vec![];
+
+    enum_variants.iter().for_each(|(name, _)| {
+        to_string.push(format!("{}::{} => String::from(\"{}\"),", enum_name, name, name));
+    });
+
+    let to_string_token_part: proc_macro2::TokenStream = match syn::parse_str(&to_string.join("\n")) {
+        Ok(token) => token,
+        Err(_) => return input_and_compile_error(input_copy, syn::Error::new(enum_name.span(), "construct token stream error from string")),
+    };
+
+    let mut to_string_token = quote! {
+        impl ToString for #enum_name {
+            fn to_string(&self) -> String {
+                match self {
+                    #to_string_token_part
+                }
+            }
+        }
+    };
+
+    let mut lit_val_to_i32: Vec<String> = vec![];
+
+    enum_variants.iter().for_each(|(name, _)| {
+        lit_val_to_i32.push(format!("\"{}\" => Some({}::{}.to_i32()),", name, enum_name, name));
+    });
+
+    let lit_val_to_i32_token_part: proc_macro2::TokenStream = match syn::parse_str(&lit_val_to_i32.join("\n")) {
+        Ok(token) => token,
+        Err(_) => return input_and_compile_error(input_copy, syn::Error::new(enum_name.span(), "construct token stream error from string")),
+    };
+
+    let mut lit_val_to_i32_token = quote! {
+        impl #enum_name {
+            pub fn lit_val_to_i32(value: &str) -> Option<i32> {
+                match value {
+                    #lit_val_to_i32_token_part
+                    _ => None,
+                }
+            }
+        }
+    };
+
+    let mut to_i32: Vec<String> = vec![];
+
+    enum_variants.iter().for_each(|(name, ord)| {
+        to_i32.push(format!("{}::{} => {},", enum_name, name, ord));
+    });
+
+    let to_i32_token_part: proc_macro2::TokenStream = match syn::parse_str(&to_i32.join("\n")) {
+        Ok(token) => token,
+        Err(_) => return input_and_compile_error(input_copy, syn::Error::new(enum_name.span(), "construct token stream error from string")),
+    };
+
+    let mut to_i32_token = quote! {
+        impl #enum_name {
+            pub fn to_i32(&self) -> i32 {
+                match self {
+                    #to_i32_token_part
+                }
+            }
+        }
+    };
+
+    let enum_option = r#"
+mod stringify_enum_{{enum_name_str_lowercase}}_option {
+    use std::fmt::Display;
+    use std::str::FromStr;
+
+    use serde::{
+        de::{self},
+        ser, Deserialize, Deserializer, Serializer,
+    };
+
+    use super::{{enum_name_str}};
+
+    pub fn serialize<T, S>(value: &Option<T>, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        T: Display,
+        S: Serializer,
+    {
+        match value {
+            None => serializer.serialize_none(),
+            Some(value) => {
+                let enum_i32 = value.to_string().parse::<i32>().map_err(|err| ser::Error::custom(err.to_string()))?;
+                let enum_type = {{enum_name_str}}::from_i32(enum_i32)
+                    .ok_or("enum {{enum_name_str}} i32 tag not valid")
+                    .map_err(|err| ser::Error::custom(err.to_string()))?;
+                serializer.collect_str(&enum_type.to_string())
+            }
+        }
+    }
+
+    pub fn deserialize<'de, T, D>(deserializer: D) -> Result<Option<T>, D::Error>
+    where
+        T: FromStr,
+        T::Err: Display,
+        D: Deserializer<'de>,
+    {
+        match Option::<String>::deserialize(deserializer)? {
+            None => Ok(None),
+            Some(value) => {
+                let enum_i32_string = {{enum_name_str}}::from_str(&value)
+                    .map_err(|err| de::Error::custom(err.to_string()))?
+                    .to_i32()
+                    .to_string();
+                match enum_i32_string.parse::<T>() {
+                    Ok(t) => Ok(Some(t)),
+                    Err(err) => Err(de::Error::custom(err.to_string())),
+                }
+            }
+        }
+    }
+}
+"#;
+
+    let enum_option = enum_option
+        .replace("{{enum_name_str}}", &enum_name_str)
+        .replace("{{enum_name_str_lowercase}}", &enum_name_str_lowercase);
+
+    let enum_option_token: proc_macro2::TokenStream = match syn::parse_str(&enum_option) {
+        Ok(token) => token,
+        Err(_) => return input_and_compile_error(input_copy, syn::Error::new(enum_name.span(), "construct token stream error from string")),
+    };
+
+    let enum_prim = r#"
+mod stringify_enum_{{enum_name_str_lowercase}}_prim {
+    use std::fmt::Display;
+    use std::str::FromStr;
+
+    use serde::{
+        de::{self},
+        ser, Deserialize, Deserializer, Serializer,
+    };
+
+    use super::{{enum_name_str}};
+
+    pub fn serialize<T, S>(value: &T, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        T: Display,
+        S: Serializer,
+    {
+        let enum_i32 = value.to_string().parse::<i32>().map_err(|err| ser::Error::custom(err.to_string()))?;
+        let enum_type = {{enum_name_str}}::from_i32(enum_i32)
+            .ok_or("enum {{enum_name_str}} i32 tag not valid")
+            .map_err(|err| ser::Error::custom(err.to_string()))?;
+        serializer.collect_str(&enum_type.to_string())
+    }
+
+    pub fn deserialize<'de, T, D>(deserializer: D) -> Result<T, D::Error>
+    where
+        T: FromStr,
+        T::Err: Display,
+        D: Deserializer<'de>,
+    {
+        match String::deserialize(deserializer) {
+            Ok(enum_str) => match {{enum_name_str}}::from_str(&enum_str) {
+                Ok(enum_type) => Ok(enum_type.to_i32().to_string().parse::<T>().map_err(|err| de::Error::custom(err.to_string()))?),
+                Err(err) => Err(de::Error::custom(err.to_string())),
+            },
+            Err(err) => Err(err),
+        }
+    }
+}
+"#;
+
+    let enum_prim = enum_prim
+        .replace("{{enum_name_str}}", &enum_name_str)
+        .replace("{{enum_name_str_lowercase}}", &enum_name_str_lowercase);
+
+    let enum_prim_token: proc_macro2::TokenStream = match syn::parse_str(&enum_prim) {
+        Ok(token) => token,
+        Err(_) => return input_and_compile_error(input_copy, syn::Error::new(enum_name.span(), "construct token stream error from string")),
+    };
+
+    let enum_vec = r#"
+mod stringify_enum_{{enum_name_str_lowercase}}_vec {
+    use std::fmt::Display;
+    use std::str::FromStr;
+
+    use serde::{
+        de::{self},
+        ser, Deserialize, Deserializer, Serializer,
+    };
+
+    use super::{{enum_name_str}};
+
+    pub fn serialize<T, S>(value: &Vec<T>, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        T: Display,
+        S: Serializer,
+    {
+        let mut seq = Vec::<String>::new();
+        for t in value {
+            let enum_i32 = t.to_string().parse::<i32>().map_err(|err| ser::Error::custom(err.to_string()))?;
+            let enum_type = {{enum_name_str}}::from_i32(enum_i32)
+                .ok_or("enum {{enum_name_str}} i32 tag not valid")
+                .map_err(|err| ser::Error::custom(err.to_string()))?;
+            seq.push(enum_type.to_string())
+        }
+        serializer.collect_seq(seq)
+    }
+
+    pub fn deserialize<'de, T, D>(deserializer: D) -> Result<Vec<T>, D::Error>
+    where
+        T: FromStr,
+        T::Err: Display,
+        D: Deserializer<'de>,
+    {
+        match Vec::<String>::deserialize(deserializer) {
+            Ok(enum_strs) => {
+                let mut seq = Vec::<T>::new();
+                for enum_str in enum_strs {
+                    match {{enum_name_str}}::from_str(&enum_str) {
+                        Ok(enum_type) => {
+                            let act = enum_type.to_i32().to_string().parse::<T>().map_err(|err| de::Error::custom(err.to_string()))?;
+                            seq.push(act);
+                        }
+                        Err(err) => return Err(de::Error::custom(err.to_string())),
+                    }
+                }
+                Ok(seq)
+            }
+            Err(err) => Err(err),
+        }
+    }
+}
+"#;
+
+    let enum_vec = enum_vec
+        .replace("{{enum_name_str}}", &enum_name_str)
+        .replace("{{enum_name_str_lowercase}}", &enum_name_str_lowercase);
+
+    let enum_vec_token: proc_macro2::TokenStream = match syn::parse_str(&enum_vec) {
+        Ok(token) => token,
+        Err(_) => return input_and_compile_error(input_copy, syn::Error::new(enum_name.span(), "construct token stream error from string")),
+    };
+
+    let enum_map = r#"
+mod stringify_enum_{{enum_name_str_lowercase}}_map {
+    use std::hash::Hash;
+    use std::str::FromStr;
+    use std::{collections::HashMap, fmt::Display};
+
+    use serde::{
+        de::{self},
+        ser, Deserializer, Serializer,
+    };
+    use serde::{Deserialize, Serialize};
+
+    use super::{{enum_name_str}};
+
+    pub fn serialize<K, V, S>(value: &HashMap<K, V>, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        K: Eq + PartialEq + Hash + Clone + Serialize,
+        V: Display,
+        S: Serializer,
+    {
+        let mut map = HashMap::<K, String>::new();
+        for (k, v) in value {
+            let enum_i32 = v.to_string().parse::<i32>().map_err(|err| ser::Error::custom(err.to_string()))?;
+            let enum_type = {{enum_name_str}}::from_i32(enum_i32)
+                .ok_or("enum {{enum_name_str}} i32 tag not valid")
+                .map_err(|err| ser::Error::custom(err.to_string()))?;
+            map.insert(k.clone(), enum_type.to_string());
+        }
+        serializer.collect_map(map)
+    }
+
+    pub fn deserialize<'de, K, V, D>(deserializer: D) -> Result<HashMap<K, V>, D::Error>
+    where
+        V: FromStr,
+        V::Err: Display,
+        D: Deserializer<'de>,
+        K: Deserialize<'de> + Eq + Hash,
+    {
+        match HashMap::<K, String>::deserialize(deserializer) {
+            Ok(enum_strs) => {
+                let mut map = HashMap::<K, V>::new();
+                for (k, v) in enum_strs {
+                    match {{enum_name_str}}::from_str(&v) {
+                        Ok(enum_type) => {
+                            let act = enum_type.to_i32().to_string().parse::<V>().map_err(|err| de::Error::custom(err.to_string()))?;
+                            map.insert(k, act);
+                        }
+                        Err(err) => return Err(de::Error::custom(err.to_string())),
+                    }
+                }
+                Ok(map)
+            }
+            Err(err) => Err(err),
+        }
+    }
+}
+"#;
+
+    let enum_map = enum_map
+        .replace("{{enum_name_str}}", &enum_name_str)
+        .replace("{{enum_name_str_lowercase}}", &enum_name_str_lowercase);
+
+    let enum_map_token: proc_macro2::TokenStream = match syn::parse_str(&enum_map) {
+        Ok(token) => token,
+        Err(_) => return input_and_compile_error(input_copy, syn::Error::new(enum_name.span(), "construct token stream error from string")),
+    };
+
+    quote! {
+        #gen_from_token
+        #to_string_token
+        #lit_val_to_i32_token
+        #to_i32_token
+        #enum_option_token
+        #enum_prim_token
+        #enum_vec_token
+        #enum_map_token
+    }
+    .into()
+}
 
 #[proc_macro_derive(EnumFieldsConvert)]
 pub fn enum_convert_for_sql(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
