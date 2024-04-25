@@ -1,5 +1,20 @@
 use proc_macro::TokenStream;
+use quote::quote;
 use syn::Token;
+
+#[proc_macro_derive(Dapr)]
+pub fn dapr_body(input: TokenStream) -> TokenStream {
+    let ast = match syn::parse::<syn::ItemStruct>(input.clone()) {
+        Ok(ast) => ast,
+        Err(err) => return input_and_compile_error(input, err),
+    };
+
+    let name = &ast.ident;
+    let gen = quote! {
+        impl DaprBody for #name {}
+    };
+    gen.into()
+}
 
 #[proc_macro_attribute]
 pub fn biz_result_handler(args: TokenStream, input: TokenStream) -> TokenStream {

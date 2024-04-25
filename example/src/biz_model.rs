@@ -2,7 +2,7 @@ use crate::*;
 
 lazy_static! {}
 
-#[derive(PartialEq, Eq, Serialize, Deserialize, Clone, Reflect, Model, Validate, ModelValidate, prost::Message)]
+#[derive(PartialEq, Eq, Serialize, Deserialize, Clone, Reflect, Model, Validate, ModelValidate, prost::Message, Dapr)]
 pub struct AppVersion {
     #[serde(with = "stringify_on_num", default)]
     #[prost(int64, optional, tag = "1")]
@@ -35,10 +35,7 @@ impl AppVersion {
         let enum_flds = [].to_vec();
         if enum_flds.contains(&f_name) {
             match f_name {
-                _ => Err(Box::new(gen_resp_err(
-                    ENUM_NOT_FOUND,
-                    Some(format!("enum field {} not found", f_name)),
-                ))),
+                _ => Err(Box::new(gen_resp_err(ENUM_NOT_FOUND, Some(format!("enum field {} not found", f_name))))),
             }
         } else {
             Ok((false, None))
@@ -46,11 +43,9 @@ impl AppVersion {
     }
 }
 
-impl DaprBody for AppVersion {}
-
 crud!(AppVersion {});
 
-#[derive(PartialEq, Eq, Serialize, Deserialize, Clone, Reflect, Model, Validate, ModelValidate, prost::Message)]
+#[derive(PartialEq, Eq, Serialize, Deserialize, Clone, Reflect, Model, Validate, ModelValidate, prost::Message, Dapr)]
 pub struct AppCodeAndVersion {
     #[prost(string, optional, tag = "1")]
     pub version: Option<String>,
@@ -67,10 +62,7 @@ impl AppCodeAndVersion {
         let enum_flds = [].to_vec();
         if enum_flds.contains(&f_name) {
             match f_name {
-                _ => Err(Box::new(gen_resp_err(
-                    ENUM_NOT_FOUND,
-                    Some(format!("enum field {} not found", f_name)),
-                ))),
+                _ => Err(Box::new(gen_resp_err(ENUM_NOT_FOUND, Some(format!("enum field {} not found", f_name))))),
             }
         } else {
             Ok((false, None))
@@ -78,9 +70,7 @@ impl AppCodeAndVersion {
     }
 }
 
-impl DaprBody for AppCodeAndVersion {}
-
-#[derive(PartialEq, Eq, Serialize, Deserialize, Clone, Reflect, Model, Validate, ModelValidate, prost::Message)]
+#[derive(PartialEq, Eq, Serialize, Deserialize, Clone, Reflect, Model, Validate, ModelValidate, prost::Message, Dapr)]
 pub struct AppInMapBuilder {
     #[prost(string, optional, tag = "1")]
     pub name: Option<String>,
@@ -104,10 +94,7 @@ impl AppInMapBuilder {
         let enum_flds = [].to_vec();
         if enum_flds.contains(&f_name) {
             match f_name {
-                _ => Err(Box::new(gen_resp_err(
-                    ENUM_NOT_FOUND,
-                    Some(format!("enum field {} not found", f_name)),
-                ))),
+                _ => Err(Box::new(gen_resp_err(ENUM_NOT_FOUND, Some(format!("enum field {} not found", f_name))))),
             }
         } else {
             Ok((false, None))
@@ -115,9 +102,7 @@ impl AppInMapBuilder {
     }
 }
 
-impl DaprBody for AppInMapBuilder {}
-
-#[derive(PartialEq, Eq, Serialize, Deserialize, Clone, Reflect, Model, Validate, ModelValidate, prost::Message)]
+#[derive(PartialEq, Eq, Serialize, Deserialize, Clone, Reflect, Model, Validate, ModelValidate, prost::Message, Dapr)]
 pub struct QueryAppVersions {
     #[serde(with = "stringify_on_num", default)]
     #[prost(int64, optional, tag = "1")]
@@ -129,10 +114,7 @@ impl QueryAppVersions {
         let enum_flds = [].to_vec();
         if enum_flds.contains(&f_name) {
             match f_name {
-                _ => Err(Box::new(gen_resp_err(
-                    ENUM_NOT_FOUND,
-                    Some(format!("enum field {} not found", f_name)),
-                ))),
+                _ => Err(Box::new(gen_resp_err(ENUM_NOT_FOUND, Some(format!("enum field {} not found", f_name))))),
             }
         } else {
             Ok((false, None))
@@ -140,9 +122,7 @@ impl QueryAppVersions {
     }
 }
 
-impl DaprBody for QueryAppVersions {}
-
-#[derive(PartialEq, Eq, Serialize, Deserialize, Clone, Reflect, Model, Validate, ModelValidate, prost::Message)]
+#[derive(PartialEq, Eq, Serialize, Deserialize, Clone, Reflect, Model, Validate, ModelValidate, prost::Message, Dapr)]
 pub struct UserWithIdSid {
     #[prost(string, optional, tag = "1")]
     pub id: Option<String>,
@@ -156,10 +136,7 @@ impl UserWithIdSid {
         let enum_flds = [].to_vec();
         if enum_flds.contains(&f_name) {
             match f_name {
-                _ => Err(Box::new(gen_resp_err(
-                    ENUM_NOT_FOUND,
-                    Some(format!("enum field {} not found", f_name)),
-                ))),
+                _ => Err(Box::new(gen_resp_err(ENUM_NOT_FOUND, Some(format!("enum field {} not found", f_name))))),
             }
         } else {
             Ok((false, None))
@@ -167,9 +144,7 @@ impl UserWithIdSid {
     }
 }
 
-impl DaprBody for UserWithIdSid {}
-
-#[derive(PartialEq, Eq, Serialize, Deserialize, Clone, Reflect, Model, Validate, ModelValidate, prost::Message)]
+#[derive(PartialEq, Eq, Serialize, Deserialize, Clone, Reflect, Model, Validate, ModelValidate, prost::Message, Dapr)]
 pub struct IdRes {
     #[prost(int64, optional, tag = "1")]
     #[validate(range(min = 101000, max = 101000))]
@@ -189,10 +164,7 @@ impl IdRes {
         let enum_flds = [].to_vec();
         if enum_flds.contains(&f_name) {
             match f_name {
-                _ => Err(Box::new(gen_resp_err(
-                    ENUM_NOT_FOUND,
-                    Some(format!("enum field {} not found", f_name)),
-                ))),
+                _ => Err(Box::new(gen_resp_err(ENUM_NOT_FOUND, Some(format!("enum field {} not found", f_name))))),
             }
         } else {
             Ok((false, None))
@@ -200,9 +172,7 @@ impl IdRes {
     }
 }
 
-impl DaprBody for IdRes {}
-
-#[derive(PartialEq, Eq, Serialize, Deserialize, Clone, Reflect, Model, Validate, ModelValidate, prost::Message)]
+#[derive(PartialEq, Eq, Serialize, Deserialize, Clone, Reflect, Model, Validate, ModelValidate, prost::Message, Dapr)]
 pub struct BulkIdRes {
     #[prost(int64, optional, tag = "1")]
     #[validate(range(min = 101000, max = 101000))]
@@ -222,10 +192,7 @@ impl BulkIdRes {
         let enum_flds = [].to_vec();
         if enum_flds.contains(&f_name) {
             match f_name {
-                _ => Err(Box::new(gen_resp_err(
-                    ENUM_NOT_FOUND,
-                    Some(format!("enum field {} not found", f_name)),
-                ))),
+                _ => Err(Box::new(gen_resp_err(ENUM_NOT_FOUND, Some(format!("enum field {} not found", f_name))))),
             }
         } else {
             Ok((false, None))
@@ -233,9 +200,7 @@ impl BulkIdRes {
     }
 }
 
-impl DaprBody for BulkIdRes {}
-
-#[derive(PartialEq, Eq, Serialize, Deserialize, Clone, Reflect, Model, Validate, ModelValidate, prost::Message)]
+#[derive(PartialEq, Eq, Serialize, Deserialize, Clone, Reflect, Model, Validate, ModelValidate, prost::Message, Dapr)]
 pub struct RelId {
     #[prost(int64, optional, tag = "1")]
     pub rel_id: Option<i64>,
@@ -246,15 +211,10 @@ impl RelId {
         let enum_flds = [].to_vec();
         if enum_flds.contains(&f_name) {
             match f_name {
-                _ => Err(Box::new(gen_resp_err(
-                    ENUM_NOT_FOUND,
-                    Some(format!("enum field {} not found", f_name)),
-                ))),
+                _ => Err(Box::new(gen_resp_err(ENUM_NOT_FOUND, Some(format!("enum field {} not found", f_name))))),
             }
         } else {
             Ok((false, None))
         }
     }
 }
-
-impl DaprBody for RelId {}
