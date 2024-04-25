@@ -10,10 +10,11 @@ macro_rules! biz_result {
             pub const $konst: crate::util::BizResult<'static> = crate::util::BizResult($status_code, $biz_code, $message, stringify!($konst));
         )*
 
+        #[allow(dead_code)]
         impl $acceptor {
             async fn insert_biz_result() -> HttpResult<()> {
                 $(
-                    util::insert_biz_result($konst).await?;
+                    crate::util::insert_biz_result($konst).await?;
                 )*
                 Ok(())
             }
