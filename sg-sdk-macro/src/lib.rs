@@ -29,7 +29,12 @@ pub fn derive_model(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 
     let data: FieldsNamed = match input.data {
         Data::Struct(DataStruct { fields: Fields::Named(n), .. }) => n,
-        _ => unimplemented!(),
+        _ => {
+            return input_and_compile_error(
+                name.clone().into_token_stream().into(),
+                syn::Error::new(name.span(), "can only be used on struct"),
+            )
+        }
     };
 
     let fields = data.named.iter().filter_map(|field| {
