@@ -92,6 +92,10 @@ async fn main() -> HttpResult<()> {
     start_http_grpc::<ForConfig>(8080, 8088).await
 }
 
+internal_auth_tag!(ForConfig, "Serverless-Guide");
+
+skip_auth_uri!(ForConfig, (INSERT, QUERY_BY_APP_ID));
+
 uri! {
     ForConfig,
     (QUERY_BY_APP_ID, GET, "^/app-version/\\d{19}$", Query, false, true);

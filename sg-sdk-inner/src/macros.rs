@@ -42,17 +42,27 @@ macro_rules! income_param {
 
 #[macro_export]
 macro_rules! internal_auth_tag {
-    ($tag:expr) => {
-        let _ = crate::util::set_internal_auth_tag($tag).await;
+    ($acceptor:ident,$tag:expr) => {
+        impl $acceptor {
+            async fn set_internal_auth_tag() -> HttpResult<()> {
+                util::set_internal_auth_tag($tag).await?;
+                Ok(())
+            }
+        }
     };
 }
 
 #[macro_export]
 macro_rules! skip_auth_uri {
-    ($($target:ident$(,)?)*) => {
-        $(
-            let _ = crate::util::set_skip_auth_uri($target).await;
-        )*
+    ($acceptor:ident,($($target:ident$(,)?)*)) => {
+        impl $acceptor {
+            async fn set_skip_auth_uri() -> HttpResult<()> {
+                $(
+                    util::set_skip_auth_uri($target).await?;
+                )*
+                Ok(())
+            }
+        }
     };
 }
 
