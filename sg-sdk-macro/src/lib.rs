@@ -1,5 +1,4 @@
 use proc_macro::TokenStream;
-use quote::quote_spanned;
 use syn::Token;
 
 #[proc_macro_attribute]
