@@ -451,7 +451,7 @@ pub enum DaprBuildBlockType {
 }
 
 #[derive(Debug, Default)]
-pub struct ContextWrapper<I: ModelTrait + prost::Message + Default, O: ModelTrait + prost::Message, C> {
+pub struct ContextWrapper<I: ModelTrait + prost::Message + Default, O: ModelTrait + prost::Message, C: Clone> {
     pub saga_id: Option<String>,
     pub uri_name: String,
     pub if_info: IfInfo,

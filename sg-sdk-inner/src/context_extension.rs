@@ -4,7 +4,7 @@ use crate::{model::*, traits::*, util::*, *};
 
 use self::inner_biz_result::*;
 
-impl<I: ModelTrait + prost::Message + Default, O: ModelTrait + prost::Message, C> ContextWrapper<I, O, C> {
+impl<I: ModelTrait + prost::Message + Default, O: ModelTrait + prost::Message, C: Clone> ContextWrapper<I, O, C> {
     pub fn get_current_dapr_component<F>(mut self, f: F) -> HttpResult<ContextWrapper<I, O, C>>
     where
         F: FnOnce(Option<DaprComponentInfo>),
@@ -17,7 +17,7 @@ impl<I: ModelTrait + prost::Message + Default, O: ModelTrait + prost::Message, C
 }
 
 // 这里全部是`invoke_binding_sql`相关的方法
-impl<I: ModelTrait + prost::Message + Default, O: ModelTrait + prost::Message, C> ContextWrapper<I, O, C> {
+impl<I: ModelTrait + prost::Message + Default, O: ModelTrait + prost::Message, C: Clone> ContextWrapper<I, O, C> {
     pub fn set_binding_sql_operation(mut self, operation: SqlOperation) -> HttpResult<ContextWrapper<I, O, C>> {
         let (req, _, _) = find_dapr_execute(&mut self.exec, self.exec_name.as_ref().ok_or("please set dapr exec first")?)?;
         let req = req.invoke_binding_sql.as_mut().ok_or("please init dapr request first")?;
@@ -65,7 +65,7 @@ impl<I: ModelTrait + prost::Message + Default, O: ModelTrait + prost::Message, C
 }
 
 // 这里全部是`invoke_binding`相关的方法
-impl<I: ModelTrait + prost::Message + Default, O: ModelTrait + prost::Message, C> ContextWrapper<I, O, C> {
+impl<I: ModelTrait + prost::Message + Default, O: ModelTrait + prost::Message, C: Clone> ContextWrapper<I, O, C> {
     pub fn set_binding_operation(mut self, operation: &str) -> HttpResult<ContextWrapper<I, O, C>> {
         let (req, _, _) = find_dapr_execute(&mut self.exec, self.exec_name.as_ref().ok_or("please set dapr exec first")?)?;
         let req = req.invoke_binding.as_mut().ok_or("please init dapr request first")?;
@@ -94,7 +94,7 @@ impl<I: ModelTrait + prost::Message + Default, O: ModelTrait + prost::Message, C
     }
 }
 
-impl<I: ModelTrait + prost::Message + Default, O: ModelTrait + prost::Message, C> ContextWrapper<I, O, C> {
+impl<I: ModelTrait + prost::Message + Default, O: ModelTrait + prost::Message, C: Clone> ContextWrapper<I, O, C> {
     pub fn dapr_get_state(self, exec_name: &str, component_name: &str) -> HttpResult<ContextWrapper<I, O, C>> {
         let dapr_req_ins = find_dapr_binding(component_name)?.make_get_state()?;
 

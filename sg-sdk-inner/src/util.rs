@@ -646,7 +646,7 @@ pub fn set_input_param<I: for<'de> Deserialize<'de> + ModelTrait + prost::Messag
 pub async fn params_to_model<
     I: for<'de> Deserialize<'de> + ModelTrait + prost::Message + Default + Serialize,
     O: for<'de> Deserialize<'de> + ModelTrait + prost::Message + Default,
-    C: Default,
+    C: Default + Clone,
 >(
     params: &Params,
 ) -> HttpResult<ContextWrapper<I, O, C>> {
@@ -773,7 +773,7 @@ pub async fn params_to_model<
     })
 }
 
-pub fn validate<I: ModelTrait + prost::Message + Validate + Default, O: ModelTrait + prost::Message, C>(
+pub fn validate<I: ModelTrait + prost::Message + Validate + Default, O: ModelTrait + prost::Message, C: Clone>(
     context: ContextWrapper<I, O, C>,
 ) -> HttpResult<ContextWrapper<I, O, C>> {
     if context.if_info.bulk_input {
@@ -796,7 +796,7 @@ pub fn utc_timestamp() -> DateTime<Local> {
     Local::now()
 }
 
-pub async fn res<I: ModelTrait + Default + prost::Message, O: ModelTrait + Validator + prost::Message + std::default::Default, C>(
+pub async fn res<I: ModelTrait + Default + prost::Message, O: ModelTrait + Validator + prost::Message + std::default::Default, C: Clone>(
     context: ContextWrapper<I, O, C>,
 ) -> HttpResult<IfRes<O>> {
     let uris = URIS.read().await;
@@ -1192,7 +1192,7 @@ pub fn find_dapr_execute<'a>(
     Ok(exec.get_mut(execute_name).ok_or(err_full(DAPR_EXECUTE_NOT_EXIST, execute_name))?)
 }
 
-pub fn set_dapr_req<I: ModelTrait + Message + Default, O: ModelTrait + Message, C>(
+pub fn set_dapr_req<I: ModelTrait + Message + Default, O: ModelTrait + Message, C: Clone>(
     mut context: ContextWrapper<I, O, C>,
     dapr_req: DaprRequest,
     execute_name: &str,
@@ -1206,7 +1206,7 @@ pub fn set_dapr_req<I: ModelTrait + Message + Default, O: ModelTrait + Message, 
     Ok(context)
 }
 
-pub fn set_dapr_res<I: ModelTrait + Message + Default, O: ModelTrait + Message, C>(
+pub fn set_dapr_res<I: ModelTrait + Message + Default, O: ModelTrait + Message, C: Clone>(
     mut context: ContextWrapper<I, O, C>,
     dapr_res: Vec<Box<dyn DaprBody>>,
     execute_name: &str,

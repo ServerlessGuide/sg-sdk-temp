@@ -102,7 +102,7 @@ pub fn dapr_url_grpc() -> HttpResult<String> {
     Ok(format!("http://{0}:{1}", dapr_host, dapr_port))
 }
 
-fn find_dapr_execute<I: ModelTrait + prost::Message + Default, O: ModelTrait + prost::Message, C>(
+fn find_dapr_execute<I: ModelTrait + prost::Message + Default, O: ModelTrait + prost::Message, C: Clone>(
     cw: &ContextWrapper<I, O, C>,
 ) -> HttpResult<&(DaprRequest, DaprResponse, Option<Vec<Box<dyn DaprBody>>>)> {
     let Some(exec_name) = &cw.exec_name else {
@@ -132,7 +132,7 @@ fn append_metadata_to_url(mut url: String, metadata: &HashMap<String, String>) -
     url
 }
 
-pub async fn invoke_service_grpc<I: ModelTrait + prost::Message + Default, O: ModelTrait + prost::Message, C>(
+pub async fn invoke_service_grpc<I: ModelTrait + prost::Message + Default, O: ModelTrait + prost::Message, C: Clone>(
     mut cw: ContextWrapper<I, O, C>,
 ) -> HttpResult<ContextWrapper<I, O, C>> {
     let dapr_execute_name = cw.exec_name.clone().ok_or(err_boxed(EXEC_NAME_NOT_EXIST))?;
@@ -169,7 +169,7 @@ pub async fn invoke_service_grpc<I: ModelTrait + prost::Message + Default, O: Mo
     Ok(cw)
 }
 
-pub async fn invoke_service_http<I: ModelTrait + prost::Message + Default, O: ModelTrait + prost::Message, C>(
+pub async fn invoke_service_http<I: ModelTrait + prost::Message + Default, O: ModelTrait + prost::Message, C: Clone>(
     mut cw: ContextWrapper<I, O, C>,
 ) -> HttpResult<ContextWrapper<I, O, C>> {
     let dapr_execute_name = cw.exec_name.clone().ok_or(err_boxed(EXEC_NAME_NOT_EXIST))?;
@@ -246,7 +246,7 @@ pub async fn invoke_service_http<I: ModelTrait + prost::Message + Default, O: Mo
     Ok(cw)
 }
 
-pub async fn get_state_grpc<I: ModelTrait + prost::Message + Default, O: ModelTrait + prost::Message, C>(
+pub async fn get_state_grpc<I: ModelTrait + prost::Message + Default, O: ModelTrait + prost::Message, C: Clone>(
     mut cw: ContextWrapper<I, O, C>,
 ) -> HttpResult<ContextWrapper<I, O, C>> {
     let dapr_execute_name = cw.exec_name.clone().ok_or(err_boxed(EXEC_NAME_NOT_EXIST))?;
@@ -279,7 +279,7 @@ pub async fn get_state_grpc<I: ModelTrait + prost::Message + Default, O: ModelTr
     Ok(cw)
 }
 
-pub async fn get_state_http<I: ModelTrait + prost::Message + Default, O: ModelTrait + prost::Message, C>(
+pub async fn get_state_http<I: ModelTrait + prost::Message + Default, O: ModelTrait + prost::Message, C: Clone>(
     mut cw: ContextWrapper<I, O, C>,
 ) -> HttpResult<ContextWrapper<I, O, C>> {
     let dapr_execute_name = cw.exec_name.clone().ok_or(err_boxed(EXEC_NAME_NOT_EXIST))?;
@@ -334,7 +334,7 @@ pub async fn get_state_http<I: ModelTrait + prost::Message + Default, O: ModelTr
     Ok(cw)
 }
 
-pub async fn get_bulk_state_http<I: ModelTrait + prost::Message + Default, O: ModelTrait + prost::Message, C>(
+pub async fn get_bulk_state_http<I: ModelTrait + prost::Message + Default, O: ModelTrait + prost::Message, C: Clone>(
     mut cw: ContextWrapper<I, O, C>,
 ) -> HttpResult<ContextWrapper<I, O, C>> {
     let dapr_execute_name = cw.exec_name.clone().ok_or(err_boxed(EXEC_NAME_NOT_EXIST))?;
@@ -375,7 +375,7 @@ pub async fn get_bulk_state_http<I: ModelTrait + prost::Message + Default, O: Mo
     Ok(cw)
 }
 
-pub async fn query_state_http<I: ModelTrait + prost::Message + Default, O: ModelTrait + prost::Message, C>(
+pub async fn query_state_http<I: ModelTrait + prost::Message + Default, O: ModelTrait + prost::Message, C: Clone>(
     mut cw: ContextWrapper<I, O, C>,
 ) -> HttpResult<ContextWrapper<I, O, C>> {
     let dapr_execute_name = cw.exec_name.clone().ok_or(err_boxed(EXEC_NAME_NOT_EXIST))?;
@@ -410,7 +410,7 @@ pub async fn query_state_http<I: ModelTrait + prost::Message + Default, O: Model
     Ok(cw)
 }
 
-pub async fn save_state_grpc<I: ModelTrait + prost::Message + Default, O: ModelTrait + prost::Message, C>(
+pub async fn save_state_grpc<I: ModelTrait + prost::Message + Default, O: ModelTrait + prost::Message, C: Clone>(
     cw: ContextWrapper<I, O, C>,
 ) -> HttpResult<ContextWrapper<I, O, C>> {
     let (dapr_config, _, _) = find_dapr_execute(&cw)?;
@@ -435,7 +435,7 @@ pub async fn save_state_grpc<I: ModelTrait + prost::Message + Default, O: ModelT
     Ok(cw)
 }
 
-pub async fn save_state_http<I: ModelTrait + prost::Message + Default, O: ModelTrait + prost::Message, C>(
+pub async fn save_state_http<I: ModelTrait + prost::Message + Default, O: ModelTrait + prost::Message, C: Clone>(
     cw: ContextWrapper<I, O, C>,
 ) -> HttpResult<ContextWrapper<I, O, C>> {
     let (dapr_config, _, _) = find_dapr_execute(&cw)?;
@@ -460,7 +460,7 @@ pub async fn save_state_http<I: ModelTrait + prost::Message + Default, O: ModelT
     Ok(cw)
 }
 
-pub async fn transaction_state_http<I: ModelTrait + prost::Message + Default, O: ModelTrait + prost::Message, C>(
+pub async fn transaction_state_http<I: ModelTrait + prost::Message + Default, O: ModelTrait + prost::Message, C: Clone>(
     cw: ContextWrapper<I, O, C>,
 ) -> HttpResult<ContextWrapper<I, O, C>> {
     let (dapr_config, _, _) = find_dapr_execute(&cw)?;
@@ -490,7 +490,7 @@ pub async fn transaction_state_http<I: ModelTrait + prost::Message + Default, O:
     Ok(cw)
 }
 
-pub async fn delete_state_grpc<I: ModelTrait + prost::Message + Default, O: ModelTrait + prost::Message, C>(
+pub async fn delete_state_grpc<I: ModelTrait + prost::Message + Default, O: ModelTrait + prost::Message, C: Clone>(
     cw: ContextWrapper<I, O, C>,
 ) -> HttpResult<ContextWrapper<I, O, C>> {
     let (dapr_config, _, _) = find_dapr_execute(&cw)?;
@@ -516,7 +516,7 @@ pub async fn delete_state_grpc<I: ModelTrait + prost::Message + Default, O: Mode
     Ok(cw)
 }
 
-pub async fn delete_state_http<I: ModelTrait + prost::Message + Default, O: ModelTrait + prost::Message, C>(
+pub async fn delete_state_http<I: ModelTrait + prost::Message + Default, O: ModelTrait + prost::Message, C: Clone>(
     cw: ContextWrapper<I, O, C>,
 ) -> HttpResult<ContextWrapper<I, O, C>> {
     let (dapr_config, _, _) = find_dapr_execute(&cw)?;
@@ -585,7 +585,7 @@ pub async fn delete_state_http<I: ModelTrait + prost::Message + Default, O: Mode
     Ok(cw)
 }
 
-pub async fn delete_bulk_state_grpc<I: ModelTrait + prost::Message + Default, O: ModelTrait + prost::Message, C>(
+pub async fn delete_bulk_state_grpc<I: ModelTrait + prost::Message + Default, O: ModelTrait + prost::Message, C: Clone>(
     cw: ContextWrapper<I, O, C>,
 ) -> HttpResult<ContextWrapper<I, O, C>> {
     let (dapr_config, _, _) = find_dapr_execute(&cw)?;
@@ -610,7 +610,7 @@ pub async fn delete_bulk_state_grpc<I: ModelTrait + prost::Message + Default, O:
     Ok(cw)
 }
 
-pub async fn delete_bulk_state_http<I: ModelTrait + prost::Message + Default, O: ModelTrait + prost::Message, C>(
+pub async fn delete_bulk_state_http<I: ModelTrait + prost::Message + Default, O: ModelTrait + prost::Message, C: Clone>(
     cw: ContextWrapper<I, O, C>,
 ) -> HttpResult<ContextWrapper<I, O, C>> {
     let (dapr_config, _, _) = find_dapr_execute(&cw)?;
@@ -635,7 +635,7 @@ pub async fn delete_bulk_state_http<I: ModelTrait + prost::Message + Default, O:
     Ok(cw)
 }
 
-pub async fn invoke_binding_grpc_sql<I: ModelTrait + prost::Message + Default, O: ModelTrait + prost::Message, C>(
+pub async fn invoke_binding_grpc_sql<I: ModelTrait + prost::Message + Default, O: ModelTrait + prost::Message, C: Clone>(
     mut cw: ContextWrapper<I, O, C>,
 ) -> HttpResult<ContextWrapper<I, O, C>> {
     let dapr_execute_name = cw.exec_name.clone().ok_or(err_boxed(EXEC_NAME_NOT_EXIST))?;
@@ -748,7 +748,7 @@ pub async fn invoke_binding_grpc_sql<I: ModelTrait + prost::Message + Default, O
     }
 }
 
-pub async fn invoke_binding_grpc<I: ModelTrait + prost::Message + Default, O: ModelTrait + prost::Message, C>(
+pub async fn invoke_binding_grpc<I: ModelTrait + prost::Message + Default, O: ModelTrait + prost::Message, C: Clone>(
     mut cw: ContextWrapper<I, O, C>,
 ) -> HttpResult<ContextWrapper<I, O, C>> {
     let dapr_execute_name = cw.exec_name.clone().ok_or(err_boxed(EXEC_NAME_NOT_EXIST))?;
@@ -781,7 +781,7 @@ pub async fn invoke_binding_grpc<I: ModelTrait + prost::Message + Default, O: Mo
     Ok(cw)
 }
 
-pub async fn invoke_binding_http_sql<I: ModelTrait + prost::Message + Default, O: ModelTrait + prost::Message, C>(
+pub async fn invoke_binding_http_sql<I: ModelTrait + prost::Message + Default, O: ModelTrait + prost::Message, C: Clone>(
     mut cw: ContextWrapper<I, O, C>,
 ) -> HttpResult<ContextWrapper<I, O, C>> {
     let dapr_execute_name = cw.exec_name.clone().ok_or(err_boxed(EXEC_NAME_NOT_EXIST))?;
@@ -922,7 +922,7 @@ pub async fn invoke_binding_http_sql<I: ModelTrait + prost::Message + Default, O
     }
 }
 
-pub async fn invoke_binding_http<I: ModelTrait + prost::Message + Default, O: ModelTrait + prost::Message, C>(
+pub async fn invoke_binding_http<I: ModelTrait + prost::Message + Default, O: ModelTrait + prost::Message, C: Clone>(
     mut cw: ContextWrapper<I, O, C>,
 ) -> HttpResult<ContextWrapper<I, O, C>> {
     let dapr_execute_name = cw.exec_name.clone().ok_or(err_boxed(EXEC_NAME_NOT_EXIST))?;
@@ -964,7 +964,7 @@ pub async fn invoke_binding_http<I: ModelTrait + prost::Message + Default, O: Mo
     Ok(cw)
 }
 
-pub async fn publish_event_grpc<I: ModelTrait + prost::Message + Default, O: ModelTrait + prost::Message, C>(
+pub async fn publish_event_grpc<I: ModelTrait + prost::Message + Default, O: ModelTrait + prost::Message, C: Clone>(
     cw: ContextWrapper<I, O, C>,
 ) -> HttpResult<ContextWrapper<I, O, C>> {
     let (dapr_config, _, _) = find_dapr_execute(&cw)?;
@@ -996,7 +996,7 @@ pub async fn publish_event_grpc<I: ModelTrait + prost::Message + Default, O: Mod
     Ok(cw)
 }
 
-pub async fn publish_event_http<I: ModelTrait + prost::Message + Default, O: ModelTrait + prost::Message, C>(
+pub async fn publish_event_http<I: ModelTrait + prost::Message + Default, O: ModelTrait + prost::Message, C: Clone>(
     cw: ContextWrapper<I, O, C>,
 ) -> HttpResult<ContextWrapper<I, O, C>> {
     let (dapr_config, _, _) = find_dapr_execute(&cw)?;
@@ -1020,7 +1020,7 @@ pub async fn publish_event_http<I: ModelTrait + prost::Message + Default, O: Mod
     Ok(cw)
 }
 
-pub async fn publish_bulk_event_http<I: ModelTrait + prost::Message + Default, O: ModelTrait + prost::Message, C>(
+pub async fn publish_bulk_event_http<I: ModelTrait + prost::Message + Default, O: ModelTrait + prost::Message, C: Clone>(
     mut cw: ContextWrapper<I, O, C>,
 ) -> HttpResult<ContextWrapper<I, O, C>> {
     let dapr_execute_name = cw.exec_name.clone().ok_or(err_boxed(EXEC_NAME_NOT_EXIST))?;
@@ -1060,7 +1060,7 @@ pub async fn publish_bulk_event_http<I: ModelTrait + prost::Message + Default, O
     Ok(cw)
 }
 
-pub async fn get_secret_grpc<I: ModelTrait + prost::Message + Default, O: ModelTrait + prost::Message, C>(
+pub async fn get_secret_grpc<I: ModelTrait + prost::Message + Default, O: ModelTrait + prost::Message, C: Clone>(
     mut cw: ContextWrapper<I, O, C>,
 ) -> HttpResult<ContextWrapper<I, O, C>> {
     let dapr_execute_name = cw.exec_name.clone().ok_or(err_boxed(EXEC_NAME_NOT_EXIST))?;
@@ -1090,7 +1090,7 @@ pub async fn get_secret_grpc<I: ModelTrait + prost::Message + Default, O: ModelT
     Ok(cw)
 }
 
-pub async fn get_secret_http<I: ModelTrait + prost::Message + Default, O: ModelTrait + prost::Message, C>(
+pub async fn get_secret_http<I: ModelTrait + prost::Message + Default, O: ModelTrait + prost::Message, C: Clone>(
     mut cw: ContextWrapper<I, O, C>,
 ) -> HttpResult<ContextWrapper<I, O, C>> {
     let dapr_execute_name = cw.exec_name.clone().ok_or(err_boxed(EXEC_NAME_NOT_EXIST))?;
@@ -1125,7 +1125,7 @@ pub async fn get_secret_http<I: ModelTrait + prost::Message + Default, O: ModelT
     Ok(cw)
 }
 
-pub async fn get_bulk_secret_http<I: ModelTrait + prost::Message + Default, O: ModelTrait + prost::Message, C>(
+pub async fn get_bulk_secret_http<I: ModelTrait + prost::Message + Default, O: ModelTrait + prost::Message, C: Clone>(
     mut cw: ContextWrapper<I, O, C>,
 ) -> HttpResult<ContextWrapper<I, O, C>> {
     let dapr_execute_name = cw.exec_name.clone().ok_or(err_boxed(EXEC_NAME_NOT_EXIST))?;
@@ -1158,7 +1158,7 @@ pub async fn get_bulk_secret_http<I: ModelTrait + prost::Message + Default, O: M
     Ok(cw)
 }
 
-pub async fn get_configuration_http<I: ModelTrait + prost::Message + Default, O: ModelTrait + prost::Message, C>(
+pub async fn get_configuration_http<I: ModelTrait + prost::Message + Default, O: ModelTrait + prost::Message, C: Clone>(
     mut cw: ContextWrapper<I, O, C>,
 ) -> HttpResult<ContextWrapper<I, O, C>> {
     let dapr_execute_name = cw.exec_name.clone().ok_or(err_boxed(EXEC_NAME_NOT_EXIST))?;
