@@ -10,7 +10,7 @@ pub fn prepare_inner_context_for_query_by_app_id(
     } else if let Some(v) = context.header.get(AuthHeader::XSGAuthJWT.lower_case_value()) {
         v.to_string()
     } else {
-        return Err(Box::new(util::gen_resp_err(DATA_ERROR, Some(String::from("jwt header not found")))));
+        return Err(err_boxed_full(DATA_ERROR, "jwt header not found"));
     };
 
     let claim_vec = jwt_token_val.split(".").collect::<Vec<&str>>();
@@ -86,10 +86,7 @@ pub fn post_check_permission(
     let first = response.responses.first().unwrap();
     let res = de_sql_result_implicit::<RelId>(&first.data, &first.output_columns, RelId::enum_convert)?;
     if res.len() != 1 {
-        return Err(Box::new(util::gen_resp_err(
-            AUTH_ERROR,
-            Some(String::from("you don't have permission to access the app")),
-        )));
+        return Err(err_boxed_full(AUTH_ERROR, "you don't have permission to access the app"));
     }
 
     Ok(context)
@@ -125,7 +122,7 @@ pub fn post_query_by_app_id(
         .ok_or(format!("execute '{}' of invoke_binding_sql response not found", execute_name))?;
 
     if response.responses.is_empty() {
-        return Err(Box::new(util::gen_resp_err(DATA_NOT_FOUND, None)));
+        return Err(err_boxed(DATA_NOT_FOUND));
     }
 
     let first = response.responses.first().unwrap();
@@ -143,7 +140,7 @@ pub fn prepare_inner_context_for_insert(
     } else if let Some(v) = context.header.get(AuthHeader::XSGAuthJWT.lower_case_value()) {
         v.to_string()
     } else {
-        return Err(Box::new(util::gen_resp_err(DATA_ERROR, Some(String::from("jwt header not found")))));
+        return Err(err_boxed_full(DATA_ERROR, "jwt header not found"));
     };
 
     let claim_vec = jwt_token_val.split(".").collect::<Vec<&str>>();
@@ -219,10 +216,7 @@ pub fn post_check_permission_for_insert(
     let first = response.responses.first().unwrap();
     let res = de_sql_result_implicit::<RelId>(&first.data, &first.output_columns, RelId::enum_convert)?;
     if res.len() != 1 {
-        return Err(Box::new(util::gen_resp_err(
-            AUTH_ERROR,
-            Some(String::from("you don't have permission to access the app")),
-        )));
+        return Err(err_boxed_full(AUTH_ERROR, "you don't have permission to access the app"));
     }
 
     Ok(context)
@@ -254,7 +248,7 @@ pub fn pre_insert(mut context: ContextWrapper<AppVersion, EmptyOutPut, UserWithI
         .ok_or(format!("execute '{}' of invoke_service response not found", execute_name))?;
 
     let Some(data) = &response.data else {
-        return Err(Box::new(util::gen_resp_err(DATA_NOT_FOUND, None)));
+        return Err(err_boxed(DATA_NOT_FOUND));
     };
 
     let ids = de_any_json::<BulkIdRes>(data)?
@@ -264,7 +258,7 @@ pub fn pre_insert(mut context: ContextWrapper<AppVersion, EmptyOutPut, UserWithI
         .clone();
 
     if ids.len() != 1 {
-        return Err(Box::new(util::gen_resp_err(DATA_ERROR, Some(String::from("get ids from id length not 1")))));
+        return Err(err_boxed_full(DATA_ERROR, "get ids from id length not 1"));
     }
 
     let execute_name = "insert";
@@ -352,10 +346,7 @@ pub fn post_check_permission_for_env_prepare(
     let first = response.responses.first().unwrap();
     let res = de_sql_result_implicit::<RelId>(&first.data, &first.output_columns, RelId::enum_convert)?;
     if res.len() != 1 {
-        return Err(Box::new(util::gen_resp_err(
-            AUTH_ERROR,
-            Some(String::from("you don't have permission to access the app")),
-        )));
+        return Err(err_boxed_full(AUTH_ERROR, "you don't have permission to access the app"));
     }
 
     Ok(context)
@@ -367,9 +358,9 @@ pub fn pre_prepare_env(
     let execute_name = "query_by_app_version_id";
     let (_, _, de_res) = find_dapr_execute(&mut context.exec, execute_name)?;
 
-    let de_res = de_res.as_mut().ok_or(util::gen_resp_err(DATA_NOT_FOUND, None))?;
+    let de_res = de_res.as_mut().ok_or(err_boxed(DATA_NOT_FOUND))?;
     if de_res.is_empty() {
-        return Err(Box::new(util::gen_resp_err(DATA_NOT_FOUND, None)));
+        return Err(err_boxed(DATA_NOT_FOUND));
     }
     let app_info = de_res[0].downcast_mut::<AppCodeAndVersion>().ok_or("downcast error")?;
     let app_code = app_info.code.clone().ok_or("app code not found")?;
@@ -458,7 +449,7 @@ pub fn post_query_by_app_version_id(
         .ok_or(format!("execute '{}' of invoke_binding_sql response not found", execute_name))?;
 
     if response.responses.is_empty() {
-        return Err(Box::new(util::gen_resp_err(DATA_NOT_FOUND, None)));
+        return Err(err_boxed(DATA_NOT_FOUND));
     }
 
     let first = response.responses.first().unwrap();

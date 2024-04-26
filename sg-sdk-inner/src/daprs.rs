@@ -2,11 +2,12 @@ use std::{collections::HashMap, str::FromStr};
 
 use crate::model::{DaprBody, InvokeBindingSqlResponse, SqlOperation, SqlResponse};
 use crate::traits::ModelTrait;
+use crate::util::{err_boxed, err_boxed_full, err_boxed_full_string};
 use crate::{
     config::get_dapr_client,
     inner_biz_result::*,
     model::{ContextWrapper, DaprRequest, DaprResponse},
-    util::{self, gen_resp_err, hyper_request},
+    util::{self, err_full, hyper_request},
 };
 use crate::{HttpResult, ENVS};
 use dapr::dapr::dapr::proto::common::v1::state_options::{StateConcurrency, StateConsistency};
@@ -18,10 +19,7 @@ use tracing::{debug, error, info, trace, warn};
 
 pub fn check_env_value(value: &str) -> HttpResult<&String> {
     let Some(dapr_host) = ENVS.get(value) else {
-        return Err(Box::new(util::gen_resp_err(
-            ENV_PARAMETER_ERROR,
-            Some(format!("env param {} not found", value)),
-        )));
+        return Err(err_boxed_full_string(ENV_PARAMETER_ERROR, format!("env param {} not found", value)));
     };
     Ok(dapr_host)
 }
@@ -116,16 +114,13 @@ fn find_dapr_execute<I: ModelTrait + prost::Message + Default, O: ModelTrait + p
     cw: &ContextWrapper<I, O, C>,
 ) -> HttpResult<&(DaprRequest, DaprResponse, Option<Vec<Box<dyn DaprBody>>>)> {
     let Some(exec_name) = &cw.exec_name else {
-        return Err(Box::new(util::gen_resp_err(
-            EXEC_NAME_NOT_EXIST,
-            Some(String::from("ContextWrapper.dapr_execute_name")),
-        )));
+        return Err(err_boxed_full(EXEC_NAME_NOT_EXIST, "ContextWrapper.dapr_execute_name"));
     };
     let Some(execute) = cw.exec.get(exec_name) else {
-        return Err(Box::new(util::gen_resp_err(
+        return Err(err_boxed_full_string(
             DAPR_EXECUTE_NOT_EXIST,
-            Some(format!("ContextWrapper.dapr_execute[{}]", exec_name)),
-        )));
+            format!("ContextWrapper.dapr_execute[{}]", exec_name),
+        ));
     };
 
     Ok(execute)
@@ -148,25 +143,19 @@ fn append_metadata_to_url(mut url: String, metadata: &HashMap<String, String>) -
 pub async fn invoke_service_grpc<I: ModelTrait + prost::Message + Default, O: ModelTrait + prost::Message, C>(
     mut cw: ContextWrapper<I, O, C>,
 ) -> HttpResult<ContextWrapper<I, O, C>> {
-    let dapr_execute_name = cw.exec_name.clone().ok_or(util::gen_resp_err(EXEC_NAME_NOT_EXIST, None))?;
+    let dapr_execute_name = cw.exec_name.clone().ok_or(err_boxed(EXEC_NAME_NOT_EXIST))?;
     let (dapr_config, dapr_execute, _) = find_dapr_execute(&cw)?;
     let mut dapr_execute = dapr_execute.clone();
 
     let config = match &dapr_config.invoke_service {
         Some(config) => config,
         None => {
-            return Err(Box::new(util::gen_resp_err(
-                DAPR_CONFIG_NOT_EXIST,
-                Some(String::from("dapr_config.invoke_service")),
-            )));
+            return Err(err_boxed_full(DAPR_CONFIG_NOT_EXIST, "dapr_config.invoke_service"));
         }
     };
 
     let Some(message) = &config.message else {
-        return Err(Box::new(util::gen_resp_err(
-            DAPR_CONFIG_NOT_EXIST,
-            Some(String::from("dapr_config.invoke_service.message")),
-        )));
+        return Err(err_boxed_full(DAPR_CONFIG_NOT_EXIST, "dapr_config.invoke_service.message"));
     };
 
     let response = get_dapr_client()
@@ -177,7 +166,7 @@ pub async fn invoke_service_grpc<I: ModelTrait + prost::Message + Default, O: Mo
     debug!("invoke dapr service '{} {}' response: {:?}", config.id, message.method, response);
 
     if let Err(err) = response {
-        return Err(Box::new(util::gen_resp_err(DAPR_REQUEST_FAIL, Some(err.to_string()))));
+        return Err(err_boxed_full_string(DAPR_REQUEST_FAIL, err.to_string()));
     }
     let response = response.unwrap();
 
@@ -191,32 +180,23 @@ pub async fn invoke_service_grpc<I: ModelTrait + prost::Message + Default, O: Mo
 pub async fn invoke_service_http<I: ModelTrait + prost::Message + Default, O: ModelTrait + prost::Message, C>(
     mut cw: ContextWrapper<I, O, C>,
 ) -> HttpResult<ContextWrapper<I, O, C>> {
-    let dapr_execute_name = cw.exec_name.clone().ok_or(util::gen_resp_err(EXEC_NAME_NOT_EXIST, None))?;
+    let dapr_execute_name = cw.exec_name.clone().ok_or(err_boxed(EXEC_NAME_NOT_EXIST))?;
     let (dapr_config, dapr_execute, _) = find_dapr_execute(&cw)?;
     let mut dapr_execute = dapr_execute.clone();
 
     let config = match &dapr_config.invoke_service {
         Some(config) => config,
         None => {
-            return Err(Box::new(util::gen_resp_err(
-                DAPR_CONFIG_NOT_EXIST,
-                Some(String::from("dapr_config.invoke_service")),
-            )));
+            return Err(err_boxed_full(DAPR_CONFIG_NOT_EXIST, "dapr_config.invoke_service"));
         }
     };
 
     let Some(message) = &config.message else {
-        return Err(Box::new(util::gen_resp_err(
-            DAPR_CONFIG_NOT_EXIST,
-            Some(String::from("dapr_config.invoke_service.message")),
-        )));
+        return Err(err_boxed_full(DAPR_CONFIG_NOT_EXIST, "dapr_config.invoke_service.message"));
     };
 
     let Some(http_extension) = &message.http_extension else {
-        return Err(Box::new(util::gen_resp_err(
-            DAPR_CONFIG_NOT_EXIST,
-            Some(String::from("dapr_config.invoke_service.message.http_extension")),
-        )));
+        return Err(err_boxed_full(DAPR_CONFIG_NOT_EXIST, "dapr_config.invoke_service.message.http_extension"));
     };
 
     let mut url = dapr_invoke_service_url_http(&config.id, &message.method)?;
@@ -241,15 +221,10 @@ pub async fn invoke_service_http<I: ModelTrait + prost::Message + Default, O: Mo
     debug!("response from dapr body: {}", body_str);
 
     if response.status() != StatusCode::OK {
-        return Err(Box::new(gen_resp_err(
+        return Err(err_boxed_full_string(
             DAPR_REQUEST_FAIL,
-            Some(format!(
-                "request to {} fail with status code {}, body: {}",
-                &config.id,
-                &response.status(),
-                body_str
-            )),
-        )));
+            format!("request to {} fail with status code {}, body: {}", &config.id, &response.status(), body_str),
+        ));
     }
 
     let content_type = match response.headers().get(header::CONTENT_TYPE) {
@@ -282,14 +257,14 @@ pub async fn invoke_service_http<I: ModelTrait + prost::Message + Default, O: Mo
 pub async fn get_state_grpc<I: ModelTrait + prost::Message + Default, O: ModelTrait + prost::Message, C>(
     mut cw: ContextWrapper<I, O, C>,
 ) -> HttpResult<ContextWrapper<I, O, C>> {
-    let dapr_execute_name = cw.exec_name.clone().ok_or(util::gen_resp_err(EXEC_NAME_NOT_EXIST, None))?;
+    let dapr_execute_name = cw.exec_name.clone().ok_or(err_boxed(EXEC_NAME_NOT_EXIST))?;
     let (dapr_config, dapr_execute, _) = find_dapr_execute(&cw)?;
     let mut dapr_execute = dapr_execute.clone();
 
     let config = match &dapr_config.get_state {
         Some(config) => config,
         None => {
-            return Err(Box::new(util::gen_resp_err(DAPR_CONFIG_NOT_EXIST, Some(String::from("dapr_config.get_state")))));
+            return Err(err_boxed_full(DAPR_CONFIG_NOT_EXIST, "dapr_config.get_state"));
         }
     };
 
@@ -301,7 +276,7 @@ pub async fn get_state_grpc<I: ModelTrait + prost::Message + Default, O: ModelTr
     debug!("get dapr state '{}' response: {:?}", config.store_name, response);
 
     if let Err(err) = response {
-        return Err(Box::new(util::gen_resp_err(DAPR_REQUEST_FAIL, Some(err.to_string()))));
+        return Err(err_boxed_full_string(DAPR_REQUEST_FAIL, err.to_string()));
     }
     let response = response.unwrap();
 
@@ -315,14 +290,14 @@ pub async fn get_state_grpc<I: ModelTrait + prost::Message + Default, O: ModelTr
 pub async fn get_state_http<I: ModelTrait + prost::Message + Default, O: ModelTrait + prost::Message, C>(
     mut cw: ContextWrapper<I, O, C>,
 ) -> HttpResult<ContextWrapper<I, O, C>> {
-    let dapr_execute_name = cw.exec_name.clone().ok_or(util::gen_resp_err(EXEC_NAME_NOT_EXIST, None))?;
+    let dapr_execute_name = cw.exec_name.clone().ok_or(err_boxed(EXEC_NAME_NOT_EXIST))?;
     let (dapr_config, dapr_execute, _) = find_dapr_execute(&cw)?;
     let mut dapr_execute = dapr_execute.clone();
 
     let config = match &dapr_config.get_state {
         Some(config) => config,
         None => {
-            return Err(Box::new(util::gen_resp_err(DAPR_CONFIG_NOT_EXIST, Some(String::from("dapr_config.get_state")))));
+            return Err(err_boxed_full(DAPR_CONFIG_NOT_EXIST, "dapr_config.get_state"));
         }
     };
 
@@ -356,7 +331,7 @@ pub async fn get_state_http<I: ModelTrait + prost::Message + Default, O: ModelTr
     debug!("response from dapr body: {}", String::from_utf8_lossy(&body_bytes));
 
     if &response.status() != &StatusCode::OK {
-        return Err(Box::new(gen_resp_err(DAPR_REQUEST_FAIL, None)));
+        return Err(err_boxed(DAPR_REQUEST_FAIL));
     }
 
     let data = serde_json::from_slice::<GetStateResponse>(&body_bytes)?;
@@ -370,17 +345,14 @@ pub async fn get_state_http<I: ModelTrait + prost::Message + Default, O: ModelTr
 pub async fn get_bulk_state_http<I: ModelTrait + prost::Message + Default, O: ModelTrait + prost::Message, C>(
     mut cw: ContextWrapper<I, O, C>,
 ) -> HttpResult<ContextWrapper<I, O, C>> {
-    let dapr_execute_name = cw.exec_name.clone().ok_or(util::gen_resp_err(EXEC_NAME_NOT_EXIST, None))?;
+    let dapr_execute_name = cw.exec_name.clone().ok_or(err_boxed(EXEC_NAME_NOT_EXIST))?;
     let (dapr_config, dapr_execute, _) = find_dapr_execute(&cw)?;
     let mut dapr_execute = dapr_execute.clone();
 
     let config = match &dapr_config.get_bulk_state {
         Some(config) => config,
         None => {
-            return Err(Box::new(util::gen_resp_err(
-                DAPR_CONFIG_NOT_EXIST,
-                Some(String::from("dapr_config.get_bulk_state")),
-            )));
+            return Err(err_boxed_full(DAPR_CONFIG_NOT_EXIST, "dapr_config.get_bulk_state"));
         }
     };
 
@@ -400,7 +372,7 @@ pub async fn get_bulk_state_http<I: ModelTrait + prost::Message + Default, O: Mo
     debug!("response from dapr body: {}", String::from_utf8_lossy(&body_bytes));
 
     if &response.status() != &StatusCode::OK {
-        return Err(Box::new(gen_resp_err(DAPR_REQUEST_FAIL, None)));
+        return Err(err_boxed(DAPR_REQUEST_FAIL));
     }
 
     let data = serde_json::from_slice::<GetBulkStateResponse>(&body_bytes)?;
@@ -414,17 +386,14 @@ pub async fn get_bulk_state_http<I: ModelTrait + prost::Message + Default, O: Mo
 pub async fn query_state_http<I: ModelTrait + prost::Message + Default, O: ModelTrait + prost::Message, C>(
     mut cw: ContextWrapper<I, O, C>,
 ) -> HttpResult<ContextWrapper<I, O, C>> {
-    let dapr_execute_name = cw.exec_name.clone().ok_or(util::gen_resp_err(EXEC_NAME_NOT_EXIST, None))?;
+    let dapr_execute_name = cw.exec_name.clone().ok_or(err_boxed(EXEC_NAME_NOT_EXIST))?;
     let (dapr_config, dapr_execute, _) = find_dapr_execute(&cw)?;
     let mut dapr_execute = dapr_execute.clone();
 
     let config = match &dapr_config.query_state {
         Some(config) => config,
         None => {
-            return Err(Box::new(util::gen_resp_err(
-                DAPR_CONFIG_NOT_EXIST,
-                Some(String::from("dapr_config.query_state")),
-            )));
+            return Err(err_boxed_full(DAPR_CONFIG_NOT_EXIST, "dapr_config.query_state"));
         }
     };
 
@@ -437,7 +406,7 @@ pub async fn query_state_http<I: ModelTrait + prost::Message + Default, O: Model
     debug!("response from dapr body: {}", String::from_utf8_lossy(&body_bytes));
 
     if &response.status() != &StatusCode::OK {
-        return Err(Box::new(gen_resp_err(DAPR_REQUEST_FAIL, None)));
+        return Err(err_boxed(DAPR_REQUEST_FAIL));
     }
 
     let data = serde_json::from_slice::<QueryStateResponse>(&body_bytes)?;
@@ -457,10 +426,7 @@ pub async fn save_state_grpc<I: ModelTrait + prost::Message + Default, O: ModelT
     let config = match &dapr_config.save_state {
         Some(config) => config,
         None => {
-            return Err(Box::new(util::gen_resp_err(
-                DAPR_CONFIG_NOT_EXIST,
-                Some(String::from("dapr_config.save_state")),
-            )));
+            return Err(err_boxed_full(DAPR_CONFIG_NOT_EXIST, "dapr_config.save_state"));
         }
     };
 
@@ -471,7 +437,7 @@ pub async fn save_state_grpc<I: ModelTrait + prost::Message + Default, O: ModelT
     debug!("save dapr state '{}' response: {:?}", config.store_name, response);
 
     if let Err(err) = response {
-        return Err(Box::new(util::gen_resp_err(DAPR_REQUEST_FAIL, Some(err.to_string()))));
+        return Err(err_boxed_full_string(DAPR_REQUEST_FAIL, err.to_string()));
     }
 
     Ok(cw)
@@ -485,10 +451,7 @@ pub async fn save_state_http<I: ModelTrait + prost::Message + Default, O: ModelT
     let config = match &dapr_config.save_state {
         Some(config) => config,
         None => {
-            return Err(Box::new(util::gen_resp_err(
-                DAPR_CONFIG_NOT_EXIST,
-                Some(String::from("dapr_config.save_state")),
-            )));
+            return Err(err_boxed_full(DAPR_CONFIG_NOT_EXIST, "dapr_config.save_state"));
         }
     };
 
@@ -499,7 +462,7 @@ pub async fn save_state_http<I: ModelTrait + prost::Message + Default, O: ModelT
     let response = hyper_request(url, Method::POST, Some(data), None).await?;
 
     if &response.status() != &StatusCode::OK {
-        return Err(Box::new(gen_resp_err(DAPR_REQUEST_FAIL, None)));
+        return Err(err_boxed(DAPR_REQUEST_FAIL));
     }
 
     Ok(cw)
@@ -513,10 +476,7 @@ pub async fn transaction_state_http<I: ModelTrait + prost::Message + Default, O:
     let config = match &dapr_config.transaction_state {
         Some(config) => config,
         None => {
-            return Err(Box::new(util::gen_resp_err(
-                DAPR_CONFIG_NOT_EXIST,
-                Some(String::from("dapr_config.transaction_state")),
-            )));
+            return Err(err_boxed_full(DAPR_CONFIG_NOT_EXIST, "dapr_config.transaction_state"));
         }
     };
 
@@ -532,7 +492,7 @@ pub async fn transaction_state_http<I: ModelTrait + prost::Message + Default, O:
     let response = hyper_request(url, Method::POST, Some(data), None).await?;
 
     if &response.status() != &StatusCode::OK {
-        return Err(Box::new(gen_resp_err(DAPR_REQUEST_FAIL, None)));
+        return Err(err_boxed(DAPR_REQUEST_FAIL));
     }
 
     Ok(cw)
@@ -546,10 +506,7 @@ pub async fn delete_state_grpc<I: ModelTrait + prost::Message + Default, O: Mode
     let config = match &dapr_config.delete_state {
         Some(config) => config,
         None => {
-            return Err(Box::new(util::gen_resp_err(
-                DAPR_CONFIG_NOT_EXIST,
-                Some(String::from("dapr_config.delete_state")),
-            )));
+            return Err(err_boxed_full(DAPR_CONFIG_NOT_EXIST, "dapr_config.delete_state"));
         }
     };
 
@@ -561,7 +518,7 @@ pub async fn delete_state_grpc<I: ModelTrait + prost::Message + Default, O: Mode
     debug!("delete dapr state '{}' response: {:?}", config.store_name, response);
 
     if let Err(err) = response {
-        return Err(Box::new(util::gen_resp_err(DAPR_REQUEST_FAIL, Some(err.to_string()))));
+        return Err(err_boxed_full_string(DAPR_REQUEST_FAIL, err.to_string()));
     }
 
     Ok(cw)
@@ -575,10 +532,7 @@ pub async fn delete_state_http<I: ModelTrait + prost::Message + Default, O: Mode
     let config = match &dapr_config.delete_state {
         Some(config) => config,
         None => {
-            return Err(Box::new(util::gen_resp_err(
-                DAPR_CONFIG_NOT_EXIST,
-                Some(String::from("dapr_config.delete_state")),
-            )));
+            return Err(err_boxed_full(DAPR_CONFIG_NOT_EXIST, "dapr_config.delete_state"));
         }
     };
 
@@ -633,7 +587,7 @@ pub async fn delete_state_http<I: ModelTrait + prost::Message + Default, O: Mode
     let response = hyper_request(url, Method::POST, None, None).await?;
 
     if &response.status() != &StatusCode::OK {
-        return Err(Box::new(gen_resp_err(DAPR_REQUEST_FAIL, None)));
+        return Err(err_boxed(DAPR_REQUEST_FAIL));
     }
 
     Ok(cw)
@@ -647,10 +601,7 @@ pub async fn delete_bulk_state_grpc<I: ModelTrait + prost::Message + Default, O:
     let config = match &dapr_config.delete_bulk_state {
         Some(config) => config,
         None => {
-            return Err(Box::new(util::gen_resp_err(
-                DAPR_CONFIG_NOT_EXIST,
-                Some(String::from("dapr_config.delete_bulk_state")),
-            )));
+            return Err(err_boxed_full(DAPR_CONFIG_NOT_EXIST, "dapr_config.delete_bulk_state"));
         }
     };
 
@@ -661,7 +612,7 @@ pub async fn delete_bulk_state_grpc<I: ModelTrait + prost::Message + Default, O:
     debug!("delete dapr bulk state '{}' response: {:?}", config.store_name, response);
 
     if let Err(err) = response {
-        return Err(Box::new(util::gen_resp_err(DAPR_REQUEST_FAIL, Some(err.to_string()))));
+        return Err(err_boxed_full_string(DAPR_REQUEST_FAIL, err.to_string()));
     }
 
     Ok(cw)
@@ -675,10 +626,7 @@ pub async fn delete_bulk_state_http<I: ModelTrait + prost::Message + Default, O:
     let config = match &dapr_config.delete_bulk_state {
         Some(config) => config,
         None => {
-            return Err(Box::new(util::gen_resp_err(
-                DAPR_CONFIG_NOT_EXIST,
-                Some(String::from("dapr_config.delete_bulk_state")),
-            )));
+            return Err(err_boxed_full(DAPR_CONFIG_NOT_EXIST, "dapr_config.delete_bulk_state"));
         }
     };
 
@@ -689,7 +637,7 @@ pub async fn delete_bulk_state_http<I: ModelTrait + prost::Message + Default, O:
     let response = hyper_request(url, Method::DELETE, Some(data), None).await?;
 
     if &response.status() != &StatusCode::OK {
-        return Err(Box::new(gen_resp_err(DAPR_REQUEST_FAIL, None)));
+        return Err(err_boxed(DAPR_REQUEST_FAIL));
     }
 
     Ok(cw)
@@ -698,17 +646,14 @@ pub async fn delete_bulk_state_http<I: ModelTrait + prost::Message + Default, O:
 pub async fn invoke_binding_grpc_sql<I: ModelTrait + prost::Message + Default, O: ModelTrait + prost::Message, C>(
     mut cw: ContextWrapper<I, O, C>,
 ) -> HttpResult<ContextWrapper<I, O, C>> {
-    let dapr_execute_name = cw.exec_name.clone().ok_or(util::gen_resp_err(EXEC_NAME_NOT_EXIST, None))?;
+    let dapr_execute_name = cw.exec_name.clone().ok_or(err_boxed(EXEC_NAME_NOT_EXIST))?;
     let (dapr_config, dapr_execute, _) = find_dapr_execute(&cw)?;
     let mut dapr_execute = dapr_execute.clone();
 
     let config = match dapr_config.invoke_binding_sql.to_owned() {
         Some(config) => config,
         None => {
-            return Err(Box::new(util::gen_resp_err(
-                DAPR_CONFIG_NOT_EXIST,
-                Some(String::from("dapr_config.invoke_binding_sql")),
-            )));
+            return Err(err_boxed_full(DAPR_CONFIG_NOT_EXIST, "dapr_config.invoke_binding_sql"));
         }
     };
 
@@ -738,10 +683,10 @@ pub async fn invoke_binding_grpc_sql<I: ModelTrait + prost::Message + Default, O
             debug!("invoke dapr binding sql page query response: {:?}", join_res.1);
 
             if let Err(err) = join_res.0 {
-                return Err(Box::new(util::gen_resp_err(DAPR_REQUEST_FAIL, Some(err.to_string()))));
+                return Err(err_boxed_full_string(DAPR_REQUEST_FAIL, err.to_string()));
             }
             if let Err(err) = join_res.1 {
-                return Err(Box::new(util::gen_resp_err(DAPR_REQUEST_FAIL, Some(err.to_string()))));
+                return Err(err_boxed_full_string(DAPR_REQUEST_FAIL, err.to_string()));
             }
 
             let query_res = join_res.0?;
@@ -787,7 +732,7 @@ pub async fn invoke_binding_grpc_sql<I: ModelTrait + prost::Message + Default, O
             debug!("invoke dapr binding sql response: {:#?}", response);
 
             if let Err(err) = response {
-                return Err(Box::new(util::gen_resp_err(DAPR_REQUEST_FAIL, Some(err.to_string()))));
+                return Err(err_boxed_full_string(DAPR_REQUEST_FAIL, err.to_string()));
             }
 
             let sql_res = response?;
@@ -814,17 +759,14 @@ pub async fn invoke_binding_grpc_sql<I: ModelTrait + prost::Message + Default, O
 pub async fn invoke_binding_grpc<I: ModelTrait + prost::Message + Default, O: ModelTrait + prost::Message, C>(
     mut cw: ContextWrapper<I, O, C>,
 ) -> HttpResult<ContextWrapper<I, O, C>> {
-    let dapr_execute_name = cw.exec_name.clone().ok_or(util::gen_resp_err(EXEC_NAME_NOT_EXIST, None))?;
+    let dapr_execute_name = cw.exec_name.clone().ok_or(err_boxed(EXEC_NAME_NOT_EXIST))?;
     let (dapr_config, dapr_execute, _) = find_dapr_execute(&cw)?;
     let mut dapr_execute = dapr_execute.clone();
 
     let config = match dapr_config.invoke_binding.to_owned() {
         Some(config) => config,
         None => {
-            return Err(Box::new(util::gen_resp_err(
-                DAPR_CONFIG_NOT_EXIST,
-                Some(String::from("dapr_config.invoke_binding")),
-            )));
+            return Err(err_boxed_full(DAPR_CONFIG_NOT_EXIST, "dapr_config.invoke_binding"));
         }
     };
 
@@ -836,7 +778,7 @@ pub async fn invoke_binding_grpc<I: ModelTrait + prost::Message + Default, O: Mo
     debug!("invoke dapr binding response: {:?}", response);
 
     if let Err(err) = response {
-        return Err(Box::new(util::gen_resp_err(DAPR_REQUEST_FAIL, Some(err.to_string()))));
+        return Err(err_boxed_full_string(DAPR_REQUEST_FAIL, err.to_string()));
     }
     let response = response.unwrap();
 
@@ -850,17 +792,14 @@ pub async fn invoke_binding_grpc<I: ModelTrait + prost::Message + Default, O: Mo
 pub async fn invoke_binding_http_sql<I: ModelTrait + prost::Message + Default, O: ModelTrait + prost::Message, C>(
     mut cw: ContextWrapper<I, O, C>,
 ) -> HttpResult<ContextWrapper<I, O, C>> {
-    let dapr_execute_name = cw.exec_name.clone().ok_or(util::gen_resp_err(EXEC_NAME_NOT_EXIST, None))?;
+    let dapr_execute_name = cw.exec_name.clone().ok_or(err_boxed(EXEC_NAME_NOT_EXIST))?;
     let (dapr_config, dapr_execute, _) = find_dapr_execute(&cw)?;
     let mut dapr_execute = dapr_execute.clone();
 
     let config = match dapr_config.invoke_binding_sql.to_owned() {
         Some(config) => config,
         None => {
-            return Err(Box::new(util::gen_resp_err(
-                DAPR_CONFIG_NOT_EXIST,
-                Some(String::from("dapr_config.invoke_binding_sql")),
-            )));
+            return Err(err_boxed_full(DAPR_CONFIG_NOT_EXIST, "dapr_config.invoke_binding_sql"));
         }
     };
 
@@ -904,10 +843,10 @@ pub async fn invoke_binding_http_sql<I: ModelTrait + prost::Message + Default, O
             debug!("invoke dapr binding sql page query response: {:?}", join_res.1);
 
             if let Err(err) = join_res.0 {
-                return Err(Box::new(util::gen_resp_err(DAPR_REQUEST_FAIL, Some(err.to_string()))));
+                return Err(err_boxed_full_string(DAPR_REQUEST_FAIL, err.to_string()));
             }
             if let Err(err) = join_res.1 {
-                return Err(Box::new(util::gen_resp_err(DAPR_REQUEST_FAIL, Some(err.to_string()))));
+                return Err(err_boxed_full_string(DAPR_REQUEST_FAIL, err.to_string()));
             }
 
             let mut query_res_bytes = join_res.0?.body_mut().collect().await?.to_bytes();
@@ -963,7 +902,7 @@ pub async fn invoke_binding_http_sql<I: ModelTrait + prost::Message + Default, O
             debug!("invoke dapr binding sql response: {:#?}", response);
 
             if let Err(err) = response {
-                return Err(Box::new(util::gen_resp_err(DAPR_REQUEST_FAIL, Some(err.to_string()))));
+                return Err(err_boxed_full_string(DAPR_REQUEST_FAIL, err.to_string()));
             }
 
             let mut sql_res = response?;
@@ -994,17 +933,14 @@ pub async fn invoke_binding_http_sql<I: ModelTrait + prost::Message + Default, O
 pub async fn invoke_binding_http<I: ModelTrait + prost::Message + Default, O: ModelTrait + prost::Message, C>(
     mut cw: ContextWrapper<I, O, C>,
 ) -> HttpResult<ContextWrapper<I, O, C>> {
-    let dapr_execute_name = cw.exec_name.clone().ok_or(util::gen_resp_err(EXEC_NAME_NOT_EXIST, None))?;
+    let dapr_execute_name = cw.exec_name.clone().ok_or(err_boxed(EXEC_NAME_NOT_EXIST))?;
     let (dapr_config, dapr_execute, _) = find_dapr_execute(&cw)?;
     let mut dapr_execute = dapr_execute.clone();
 
     let config = match &dapr_config.invoke_binding {
         Some(config) => config,
         None => {
-            return Err(Box::new(util::gen_resp_err(
-                DAPR_CONFIG_NOT_EXIST,
-                Some(String::from("dapr_config.invoke_binding")),
-            )));
+            return Err(err_boxed_full(DAPR_CONFIG_NOT_EXIST, "dapr_config.invoke_binding"));
         }
     };
 
@@ -1024,7 +960,7 @@ pub async fn invoke_binding_http<I: ModelTrait + prost::Message + Default, O: Mo
     debug!("response from dapr body: {}", String::from_utf8_lossy(&body_bytes));
 
     if &response.status() != &StatusCode::OK {
-        return Err(Box::new(gen_resp_err(DAPR_REQUEST_FAIL, None)));
+        return Err(err_boxed(DAPR_REQUEST_FAIL));
     }
 
     let data = serde_json::from_slice::<InvokeBindingResponse>(&body_bytes)?;
@@ -1044,10 +980,7 @@ pub async fn publish_event_grpc<I: ModelTrait + prost::Message + Default, O: Mod
     let config = match &dapr_config.publish_event {
         Some(config) => config,
         None => {
-            return Err(Box::new(util::gen_resp_err(
-                DAPR_CONFIG_NOT_EXIST,
-                Some(String::from("dapr_config.publish_event")),
-            )));
+            return Err(err_boxed_full(DAPR_CONFIG_NOT_EXIST, "dapr_config.publish_event"));
         }
     };
 
@@ -1065,7 +998,7 @@ pub async fn publish_event_grpc<I: ModelTrait + prost::Message + Default, O: Mod
     debug!("publish dapr event '{}.{}' response: {:?}", config.pubsub_name, config.topic, response);
 
     if let Err(err) = response {
-        return Err(Box::new(util::gen_resp_err(DAPR_REQUEST_FAIL, Some(err.to_string()))));
+        return Err(err_boxed_full_string(DAPR_REQUEST_FAIL, err.to_string()));
     }
 
     Ok(cw)
@@ -1079,10 +1012,7 @@ pub async fn publish_event_http<I: ModelTrait + prost::Message + Default, O: Mod
     let config = match &dapr_config.publish_event {
         Some(config) => config,
         None => {
-            return Err(Box::new(util::gen_resp_err(
-                DAPR_CONFIG_NOT_EXIST,
-                Some(String::from("dapr_config.publish_event")),
-            )));
+            return Err(err_boxed_full(DAPR_CONFIG_NOT_EXIST, "dapr_config.publish_event"));
         }
     };
 
@@ -1092,7 +1022,7 @@ pub async fn publish_event_http<I: ModelTrait + prost::Message + Default, O: Mod
     let response = hyper_request(url_with_metadata, Method::POST, Some(config.data.clone()), None).await?;
 
     if &response.status() != &StatusCode::OK {
-        return Err(Box::new(gen_resp_err(DAPR_REQUEST_FAIL, None)));
+        return Err(err_boxed(DAPR_REQUEST_FAIL));
     }
 
     Ok(cw)
@@ -1101,17 +1031,14 @@ pub async fn publish_event_http<I: ModelTrait + prost::Message + Default, O: Mod
 pub async fn publish_bulk_event_http<I: ModelTrait + prost::Message + Default, O: ModelTrait + prost::Message, C>(
     mut cw: ContextWrapper<I, O, C>,
 ) -> HttpResult<ContextWrapper<I, O, C>> {
-    let dapr_execute_name = cw.exec_name.clone().ok_or(util::gen_resp_err(EXEC_NAME_NOT_EXIST, None))?;
+    let dapr_execute_name = cw.exec_name.clone().ok_or(err_boxed(EXEC_NAME_NOT_EXIST))?;
     let (dapr_config, dapr_execute, _) = find_dapr_execute(&cw)?;
     let mut dapr_execute = dapr_execute.clone();
 
     let config = match &dapr_config.publish_bulk_event {
         Some(config) => config,
         None => {
-            return Err(Box::new(util::gen_resp_err(
-                DAPR_CONFIG_NOT_EXIST,
-                Some(String::from("dapr_config.publish_bulk_event")),
-            )));
+            return Err(err_boxed_full(DAPR_CONFIG_NOT_EXIST, "dapr_config.publish_bulk_event"));
         }
     };
 
@@ -1135,7 +1062,7 @@ pub async fn publish_bulk_event_http<I: ModelTrait + prost::Message + Default, O
     }
 
     if &response.status() != &StatusCode::OK {
-        return Err(Box::new(gen_resp_err(DAPR_REQUEST_FAIL, None)));
+        return Err(err_boxed(DAPR_REQUEST_FAIL));
     }
 
     Ok(cw)
@@ -1144,17 +1071,14 @@ pub async fn publish_bulk_event_http<I: ModelTrait + prost::Message + Default, O
 pub async fn get_secret_grpc<I: ModelTrait + prost::Message + Default, O: ModelTrait + prost::Message, C>(
     mut cw: ContextWrapper<I, O, C>,
 ) -> HttpResult<ContextWrapper<I, O, C>> {
-    let dapr_execute_name = cw.exec_name.clone().ok_or(util::gen_resp_err(EXEC_NAME_NOT_EXIST, None))?;
+    let dapr_execute_name = cw.exec_name.clone().ok_or(err_boxed(EXEC_NAME_NOT_EXIST))?;
     let (dapr_config, dapr_execute, _) = find_dapr_execute(&cw)?;
     let mut dapr_execute = dapr_execute.clone();
 
     let config = match &dapr_config.get_secret {
         Some(config) => config,
         None => {
-            return Err(Box::new(util::gen_resp_err(
-                DAPR_CONFIG_NOT_EXIST,
-                Some(String::from("dapr_config.get_secret")),
-            )));
+            return Err(err_boxed_full(DAPR_CONFIG_NOT_EXIST, "dapr_config.get_secret"));
         }
     };
 
@@ -1163,7 +1087,7 @@ pub async fn get_secret_grpc<I: ModelTrait + prost::Message + Default, O: ModelT
     debug!("get dapr secret response: {:?}", response);
 
     if let Err(err) = response {
-        return Err(Box::new(util::gen_resp_err(DAPR_REQUEST_FAIL, Some(err.to_string()))));
+        return Err(err_boxed_full_string(DAPR_REQUEST_FAIL, err.to_string()));
     }
     let response = response.unwrap();
 
@@ -1177,17 +1101,14 @@ pub async fn get_secret_grpc<I: ModelTrait + prost::Message + Default, O: ModelT
 pub async fn get_secret_http<I: ModelTrait + prost::Message + Default, O: ModelTrait + prost::Message, C>(
     mut cw: ContextWrapper<I, O, C>,
 ) -> HttpResult<ContextWrapper<I, O, C>> {
-    let dapr_execute_name = cw.exec_name.clone().ok_or(util::gen_resp_err(EXEC_NAME_NOT_EXIST, None))?;
+    let dapr_execute_name = cw.exec_name.clone().ok_or(err_boxed(EXEC_NAME_NOT_EXIST))?;
     let (dapr_config, dapr_execute, _) = find_dapr_execute(&cw)?;
     let mut dapr_execute = dapr_execute.clone();
 
     let config = match &dapr_config.get_secret {
         Some(config) => config,
         None => {
-            return Err(Box::new(util::gen_resp_err(
-                DAPR_CONFIG_NOT_EXIST,
-                Some(String::from("dapr_config.get_secret")),
-            )));
+            return Err(err_boxed_full(DAPR_CONFIG_NOT_EXIST, "dapr_config.get_secret"));
         }
     };
 
@@ -1201,7 +1122,7 @@ pub async fn get_secret_http<I: ModelTrait + prost::Message + Default, O: ModelT
     debug!("response from dapr body: {}", String::from_utf8_lossy(&body_bytes));
 
     if &response.status() != &StatusCode::OK {
-        return Err(Box::new(gen_resp_err(DAPR_REQUEST_FAIL, None)));
+        return Err(err_boxed(DAPR_REQUEST_FAIL));
     }
 
     let data = serde_json::from_slice::<GetSecretResponse>(&body_bytes)?;
@@ -1215,17 +1136,14 @@ pub async fn get_secret_http<I: ModelTrait + prost::Message + Default, O: ModelT
 pub async fn get_bulk_secret_http<I: ModelTrait + prost::Message + Default, O: ModelTrait + prost::Message, C>(
     mut cw: ContextWrapper<I, O, C>,
 ) -> HttpResult<ContextWrapper<I, O, C>> {
-    let dapr_execute_name = cw.exec_name.clone().ok_or(util::gen_resp_err(EXEC_NAME_NOT_EXIST, None))?;
+    let dapr_execute_name = cw.exec_name.clone().ok_or(err_boxed(EXEC_NAME_NOT_EXIST))?;
     let (dapr_config, dapr_execute, _) = find_dapr_execute(&cw)?;
     let mut dapr_execute = dapr_execute.clone();
 
     let config = match &dapr_config.get_bluk_secret {
         Some(config) => config,
         None => {
-            return Err(Box::new(util::gen_resp_err(
-                DAPR_CONFIG_NOT_EXIST,
-                Some(String::from("dapr_config.get_bluk_secret")),
-            )));
+            return Err(err_boxed_full(DAPR_CONFIG_NOT_EXIST, "dapr_config.get_bluk_secret"));
         }
     };
 
@@ -1237,7 +1155,7 @@ pub async fn get_bulk_secret_http<I: ModelTrait + prost::Message + Default, O: M
     debug!("response from dapr body: {}", String::from_utf8_lossy(&body_bytes));
 
     if &response.status() != &StatusCode::OK {
-        return Err(Box::new(gen_resp_err(DAPR_REQUEST_FAIL, None)));
+        return Err(err_boxed(DAPR_REQUEST_FAIL));
     }
 
     let data = serde_json::from_slice::<GetBulkSecretResponse>(&body_bytes)?;
@@ -1251,17 +1169,14 @@ pub async fn get_bulk_secret_http<I: ModelTrait + prost::Message + Default, O: M
 pub async fn get_configuration_http<I: ModelTrait + prost::Message + Default, O: ModelTrait + prost::Message, C>(
     mut cw: ContextWrapper<I, O, C>,
 ) -> HttpResult<ContextWrapper<I, O, C>> {
-    let dapr_execute_name = cw.exec_name.clone().ok_or(util::gen_resp_err(EXEC_NAME_NOT_EXIST, None))?;
+    let dapr_execute_name = cw.exec_name.clone().ok_or(err_boxed(EXEC_NAME_NOT_EXIST))?;
     let (dapr_config, dapr_execute, _) = find_dapr_execute(&cw)?;
     let mut dapr_execute = dapr_execute.clone();
 
     let config = match &dapr_config.get_configuration {
         Some(config) => config,
         None => {
-            return Err(Box::new(util::gen_resp_err(
-                DAPR_CONFIG_NOT_EXIST,
-                Some(String::from("dapr_config.get_configuration")),
-            )));
+            return Err(err_boxed_full(DAPR_CONFIG_NOT_EXIST, "dapr_config.get_configuration"));
         }
     };
 
@@ -1280,7 +1195,7 @@ pub async fn get_configuration_http<I: ModelTrait + prost::Message + Default, O:
     debug!("response from dapr body: {}", String::from_utf8_lossy(&body_bytes));
 
     if &response.status() != &StatusCode::OK {
-        return Err(Box::new(gen_resp_err(DAPR_REQUEST_FAIL, None)));
+        return Err(err_boxed(DAPR_REQUEST_FAIL));
     }
 
     let data = serde_json::from_slice::<GetConfigurationResponse>(&body_bytes)?;

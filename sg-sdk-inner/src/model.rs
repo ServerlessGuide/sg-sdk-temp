@@ -12,10 +12,13 @@ use std::{collections::HashMap, fmt::Debug, str::FromStr};
 use validator::Validate;
 use validator_derive::Validate;
 
+use crate::util::err;
+use crate::util::err_boxed_full;
+use crate::util::err_boxed_full_string;
 use crate::{
     inner_biz_result::*,
     traits::*,
-    util::{self, gen_resp_err, ResponseError},
+    util::{self, err_full, ResponseError},
     HttpResult, *,
 };
 
@@ -95,7 +98,7 @@ impl FromStr for ParamFrom {
             "Path" => Ok(ParamFrom::Path),
             "Query" => Ok(ParamFrom::Query),
             "Body" => Ok(ParamFrom::Body),
-            _ => Err(gen_resp_err(ENUM_NOT_FOUND, None)),
+            _ => Err(err(ENUM_NOT_FOUND)),
         }
     }
 }
@@ -130,7 +133,7 @@ impl FromStr for ParamType {
             "Number" => Ok(ParamType::Number),
             "HashMap" => Ok(ParamType::HashMap),
             "Vec" => Ok(ParamType::Vec),
-            _ => Err(gen_resp_err(ENUM_NOT_FOUND, None)),
+            _ => Err(err(ENUM_NOT_FOUND)),
         }
     }
 }
@@ -376,7 +379,7 @@ impl FromStr for Action {
             "Insert" => Ok(Action::Insert),
             "TX" => Ok(Action::TX),
             "Function" => Ok(Action::Function),
-            _ => Err(gen_resp_err(ENUM_NOT_FOUND, None)),
+            _ => Err(err(ENUM_NOT_FOUND)),
         }
     }
 }
@@ -505,10 +508,7 @@ impl DaprRequest {
         let mut s: Self = Default::default();
 
         let Some(config) = dapr_config.state.clone() else {
-            return Err(Box::new(util::gen_resp_err(
-                DAPR_CONFIG_NOT_EXIST,
-                Some(format!("{}.{}", "DaprConfig", "state")),
-            )));
+            return Err(err_boxed_full_string(DAPR_CONFIG_NOT_EXIST, format!("{}.{}", "DaprConfig", "state")));
         };
 
         let mut metadata = HashMap::<String, String>::new();
@@ -531,10 +531,7 @@ impl DaprRequest {
         let mut s: Self = Default::default();
 
         let Some(config) = dapr_config.state.clone() else {
-            return Err(Box::new(util::gen_resp_err(
-                DAPR_CONFIG_NOT_EXIST,
-                Some(format!("{}.{}", "DaprConfig", "state")),
-            )));
+            return Err(err_boxed_full_string(DAPR_CONFIG_NOT_EXIST, format!("{}.{}", "DaprConfig", "state")));
         };
 
         let mut metadata = HashMap::<String, String>::new();
@@ -557,10 +554,7 @@ impl DaprRequest {
         let mut s: Self = Default::default();
 
         let Some(config) = dapr_config.state.clone() else {
-            return Err(Box::new(util::gen_resp_err(
-                DAPR_CONFIG_NOT_EXIST,
-                Some(format!("{}.{}", "DaprConfig", "state")),
-            )));
+            return Err(err_boxed_full_string(DAPR_CONFIG_NOT_EXIST, format!("{}.{}", "DaprConfig", "state")));
         };
 
         let mut metadata = HashMap::<String, String>::new();
@@ -582,10 +576,7 @@ impl DaprRequest {
         let mut s: Self = Default::default();
 
         let Some(config) = dapr_config.state.clone() else {
-            return Err(Box::new(util::gen_resp_err(
-                DAPR_CONFIG_NOT_EXIST,
-                Some(format!("{}.{}", "DaprConfig", "state")),
-            )));
+            return Err(err_boxed_full_string(DAPR_CONFIG_NOT_EXIST, format!("{}.{}", "DaprConfig", "state")));
         };
 
         s.save_state = Some(SaveStateRequest {
@@ -600,10 +591,7 @@ impl DaprRequest {
         let mut s: Self = Default::default();
 
         let Some(config) = dapr_config.state.clone() else {
-            return Err(Box::new(util::gen_resp_err(
-                DAPR_CONFIG_NOT_EXIST,
-                Some(format!("{}.{}", "DaprConfig", "state")),
-            )));
+            return Err(err_boxed_full_string(DAPR_CONFIG_NOT_EXIST, format!("{}.{}", "DaprConfig", "state")));
         };
 
         let mut metadata = HashMap::<String, String>::new();
@@ -625,10 +613,7 @@ impl DaprRequest {
         let mut s: Self = Default::default();
 
         let Some(config) = dapr_config.state.clone() else {
-            return Err(Box::new(util::gen_resp_err(
-                DAPR_CONFIG_NOT_EXIST,
-                Some(format!("{}.{}", "DaprConfig", "state")),
-            )));
+            return Err(err_boxed_full_string(DAPR_CONFIG_NOT_EXIST, format!("{}.{}", "DaprConfig", "state")));
         };
 
         let mut metadata = HashMap::<String, String>::new();
@@ -652,10 +637,7 @@ impl DaprRequest {
         let mut s: Self = Default::default();
 
         let Some(config) = dapr_config.state.clone() else {
-            return Err(Box::new(util::gen_resp_err(
-                DAPR_CONFIG_NOT_EXIST,
-                Some(format!("{}.{}", "DaprConfig", "state")),
-            )));
+            return Err(err_boxed_full_string(DAPR_CONFIG_NOT_EXIST, format!("{}.{}", "DaprConfig", "state")));
         };
 
         let mut metadata = HashMap::<String, String>::new();
@@ -676,10 +658,7 @@ impl DaprRequest {
         let mut s: Self = Default::default();
 
         let Some(config) = dapr_config.binding.clone() else {
-            return Err(Box::new(util::gen_resp_err(
-                DAPR_CONFIG_NOT_EXIST,
-                Some(format!("{}.{}", "DaprConfig", "binding")),
-            )));
+            return Err(err_boxed_full_string(DAPR_CONFIG_NOT_EXIST, format!("{}.{}", "DaprConfig", "binding")));
         };
 
         let mut metadata = HashMap::<String, String>::new();
@@ -702,10 +681,7 @@ impl DaprRequest {
         let mut s: Self = Default::default();
 
         let Some(config) = dapr_config.binding.clone() else {
-            return Err(Box::new(util::gen_resp_err(
-                DAPR_CONFIG_NOT_EXIST,
-                Some(format!("{}.{}", "DaprConfig", "binding")),
-            )));
+            return Err(err_boxed_full_string(DAPR_CONFIG_NOT_EXIST, format!("{}.{}", "DaprConfig", "binding")));
         };
 
         let mut metadata = HashMap::<String, String>::new();
@@ -730,10 +706,7 @@ impl DaprRequest {
         let mut s: Self = Default::default();
 
         let Some(config) = dapr_config.pubsub.clone() else {
-            return Err(Box::new(util::gen_resp_err(
-                DAPR_CONFIG_NOT_EXIST,
-                Some(format!("{}.{}", "DaprConfig", "pubsub")),
-            )));
+            return Err(err_boxed_full_string(DAPR_CONFIG_NOT_EXIST, format!("{}.{}", "DaprConfig", "pubsub")));
         };
 
         let mut metadata = HashMap::<String, String>::new();
@@ -757,10 +730,7 @@ impl DaprRequest {
         let mut s: Self = Default::default();
 
         let Some(config) = dapr_config.pubsub.clone() else {
-            return Err(Box::new(util::gen_resp_err(
-                DAPR_CONFIG_NOT_EXIST,
-                Some(format!("{}.{}", "DaprConfig", "pubsub")),
-            )));
+            return Err(err_boxed_full_string(DAPR_CONFIG_NOT_EXIST, format!("{}.{}", "DaprConfig", "pubsub")));
         };
 
         let mut metadata = HashMap::<String, String>::new();
@@ -783,10 +753,7 @@ impl DaprRequest {
         let mut s: Self = Default::default();
 
         let Some(config) = dapr_config.secret.clone() else {
-            return Err(Box::new(util::gen_resp_err(
-                DAPR_CONFIG_NOT_EXIST,
-                Some(format!("{}.{}", "DaprConfig", "secret")),
-            )));
+            return Err(err_boxed_full_string(DAPR_CONFIG_NOT_EXIST, format!("{}.{}", "DaprConfig", "secret")));
         };
 
         let mut metadata = HashMap::<String, String>::new();
@@ -808,10 +775,7 @@ impl DaprRequest {
         let mut s: Self = Default::default();
 
         let Some(config) = dapr_config.secret.clone() else {
-            return Err(Box::new(util::gen_resp_err(
-                DAPR_CONFIG_NOT_EXIST,
-                Some(format!("{}.{}", "DaprConfig", "secret")),
-            )));
+            return Err(err_boxed_full_string(DAPR_CONFIG_NOT_EXIST, format!("{}.{}", "DaprConfig", "secret")));
         };
 
         let mut metadata = HashMap::<String, String>::new();
@@ -832,10 +796,7 @@ impl DaprRequest {
         let mut s: Self = Default::default();
 
         let Some(config) = dapr_config.conf.clone() else {
-            return Err(Box::new(util::gen_resp_err(
-                DAPR_CONFIG_NOT_EXIST,
-                Some(format!("{}.{}", "DaprConfig", "conf")),
-            )));
+            return Err(err_boxed_full_string(DAPR_CONFIG_NOT_EXIST, format!("{}.{}", "DaprConfig", "conf")));
         };
 
         let mut metadata = HashMap::<String, String>::new();

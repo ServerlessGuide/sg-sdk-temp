@@ -27,6 +27,7 @@ use sqlparser::{
 };
 use std::{
     collections::HashMap,
+    error::Error,
     fmt::{Debug, Display},
     str::FromStr,
 };
@@ -190,10 +191,45 @@ pub fn gen_resp<T: Serialize + Display>(status_code: u16, body: Res<T>) -> Respo
     resp
 }
 
-pub fn gen_resp_err<'a>(biz_res: BizResult<'static>, message: Option<String>) -> ResponseError {
+pub fn err_boxed<'a>(biz_res: BizResult<'static>) -> Box<ResponseError> {
+    Box::new(ResponseError {
+        biz_res: biz_res.name(),
+        message: Some(biz_res.message()),
+    })
+}
+
+pub fn err_boxed_full<'a>(biz_res: BizResult<'static>, message: &str) -> Box<ResponseError> {
+    Box::new(ResponseError {
+        biz_res: biz_res.name(),
+        message: Some(String::from(message)),
+    })
+}
+
+pub fn err_boxed_full_string<'a>(biz_res: BizResult<'static>, message: String) -> Box<ResponseError> {
+    Box::new(ResponseError {
+        biz_res: biz_res.name(),
+        message: Some(message),
+    })
+}
+
+pub fn err<'a>(biz_res: BizResult<'static>) -> ResponseError {
     ResponseError {
         biz_res: biz_res.name(),
-        message,
+        message: Some(biz_res.message()),
+    }
+}
+
+pub fn err_full<'a>(biz_res: BizResult<'static>, message: &str) -> ResponseError {
+    ResponseError {
+        biz_res: biz_res.name(),
+        message: Some(String::from(message)),
+    }
+}
+
+pub fn err_full_string<'a>(biz_res: BizResult<'static>, message: String) -> ResponseError {
+    ResponseError {
+        biz_res: biz_res.name(),
+        message: Some(message),
     }
 }
 
@@ -307,7 +343,7 @@ impl BizResult<'static> {
         let biz_result_map = BIZ_RESULT_MAP.read().await;
         let res = biz_result_map.get(&item);
         let Some(res) = res else {
-            return Err(Box::new(gen_resp_err(BIZ_RESULT_NOT_FOUND, None)));
+            return Err(err_boxed(BIZ_RESULT_NOT_FOUND));
         };
         Ok(*res)
     }
@@ -386,10 +422,7 @@ pub async fn uri_match(req_path: &str, req_method: Method) -> HttpResult<URI> {
             return Ok(uri.to_owned());
         }
     }
-    Err(Box::new(gen_resp_err(
-        URI_NOT_MATCH,
-        Some(format!("uri: {}, method: {}.", req_path, req_method.as_str())),
-    )))
+    Err(err_boxed_full(URI_NOT_MATCH, &format!("uri: {}, method: {}.", req_path, req_method.as_str())))
 }
 
 pub async fn parse_params_grpc(req: tonic::Request<InvokeRequest>) -> GrpcResult<Params> {
@@ -522,7 +555,7 @@ pub async fn parse_params(req: Request<Incoming>) -> HttpResult<Params> {
 fn de_bytes_slice<T: for<'de> Deserialize<'de>>(bytes: &[u8]) -> HttpResult<T> {
     let model = serde_json::from_slice::<T>(&bytes[..]);
     if let Err(err) = model {
-        return Err(Box::new(gen_resp_err(CONVERT_TO_MODEL_ERROR, Some(err.to_string()))));
+        return Err(err_boxed_full(CONVERT_TO_MODEL_ERROR, &err.to_string()));
     };
     Ok(model.unwrap())
 }
@@ -537,12 +570,12 @@ pub fn set_input_param<I: for<'de> Deserialize<'de> + ModelTrait + prost::Messag
         match param_def.from {
             ParamFrom::Header => {
                 if params.header.is_empty() {
-                    return Err(Box::new(gen_resp_err(HEADER_NOT_FOUND, None)));
+                    return Err(err_boxed(HEADER_NOT_FOUND));
                 }
 
                 if param_def.required {
                     let Some(value) = params.header.get(name) else {
-                        return Err(Box::new(gen_resp_err(HEADER_NOT_FOUND, Some(String::from(format!("header {name} not found"))))));
+                        return Err(err_boxed_full(HEADER_NOT_FOUND, &format!("header {name} not found")));
                     };
                     input_param.set_field(value.to_owned(), target_name.as_str())?;
                 } else {
@@ -555,19 +588,16 @@ pub fn set_input_param<I: for<'de> Deserialize<'de> + ModelTrait + prost::Messag
             ParamFrom::Path => {
                 let path_pos = name.parse::<u8>();
                 if let Err(err) = path_pos {
-                    return Err(Box::new(gen_resp_err(PARAM_MAP_PARSE_ERROR, Some(err.to_string()))));
+                    return Err(err_boxed_full(PARAM_MAP_PARSE_ERROR, &err.to_string()));
                 }
 
                 if params.path_param.is_empty() {
-                    return Err(Box::new(gen_resp_err(PATH_PARAM_NOT_EXIST, None)));
+                    return Err(err_boxed(PATH_PARAM_NOT_EXIST));
                 }
 
                 if param_def.required {
                     let Some(value) = params.path_param.get(&path_pos.unwrap()) else {
-                        return Err(Box::new(gen_resp_err(
-                            PATH_PARAM_NOT_EXIST,
-                            Some(String::from(format!("path param {name} not found"))),
-                        )));
+                        return Err(err_boxed_full(PATH_PARAM_NOT_EXIST, &format!("path param {name} not found")));
                     };
                     input_param.set_field(value.to_owned(), target_name.as_str())?;
                 } else {
@@ -579,15 +609,12 @@ pub fn set_input_param<I: for<'de> Deserialize<'de> + ModelTrait + prost::Messag
 
             ParamFrom::Query => {
                 if !params.query_param.is_empty() {
-                    return Err(Box::new(gen_resp_err(QUERY_PARAM_NOT_EXIST, None)));
+                    return Err(err_boxed(QUERY_PARAM_NOT_EXIST));
                 }
 
                 if param_def.required {
                     let Some(value) = params.query_param.get(name) else {
-                        return Err(Box::new(gen_resp_err(
-                            PATH_PARAM_NOT_EXIST,
-                            Some(String::from(format!("query parameter {name} not found"))),
-                        )));
+                        return Err(err_boxed_full(PATH_PARAM_NOT_EXIST, &format!("query parameter {name} not found")));
                     };
                     input_param.set_field(value.to_owned(), target_name.as_str())?;
                 } else {
@@ -603,10 +630,9 @@ pub fn set_input_param<I: for<'de> Deserialize<'de> + ModelTrait + prost::Messag
                         ParamType::Vec => {}
                         ParamType::HashMap => {}
                         _ => {
-                            input_param.get_field_str(param_def.name.as_str()).ok_or(gen_resp_err(
-                                BODY_PARAM_NOT_EXIST,
-                                Some(String::from(format!("body parameter {name} not found"))),
-                            ))?;
+                            input_param
+                                .get_field_str(param_def.name.as_str())
+                                .ok_or(err_full(BODY_PARAM_NOT_EXIST, &format!("body parameter {name} not found")))?;
                         }
                     }
                 }
@@ -790,7 +816,7 @@ pub async fn hyper_request(
 ) -> HttpResult<Response<Incoming>> {
     let hyper_url = match url.parse::<hyper::Uri>() {
         Err(err) => {
-            return Err(Box::new(gen_resp_err(URL_PARSE_ERROR, Some(err.to_string()))));
+            return Err(err_boxed_full(URL_PARSE_ERROR, &err.to_string()));
         }
         Ok(url) => url,
     };
@@ -798,7 +824,7 @@ pub async fn hyper_request(
     match http_method {
         Method::GET | Method::POST | Method::PUT | Method::DELETE | Method::PATCH => {}
 
-        _ => return Err(Box::new(gen_resp_err(REQUEST_METHOD_NOT_ALLOWED, None))),
+        _ => return Err(err_boxed(REQUEST_METHOD_NOT_ALLOWED)),
     }
 
     debug!("[invoke] request to dapr: {:?}", &hyper_url);
@@ -821,7 +847,7 @@ pub async fn hyper_request(
     };
 
     if let Err(err) = req {
-        return Err(Box::new(gen_resp_err(DAPR_HTTP_REQ_BUILD_ERROR, Some(err.to_string()))));
+        return Err(err_boxed_full(DAPR_HTTP_REQ_BUILD_ERROR, &err.to_string()));
     }
 
     let host = hyper_url.host().ok_or("uri has no host")?;
@@ -863,7 +889,7 @@ pub fn de_sql_result<T: Default + ModelTrait + Debug + DaprBody>(
     enum_flds: fn(&str, &str) -> HttpResult<(bool, Option<i32>)>,
 ) -> HttpResult<Vec<Box<dyn DaprBody>>> {
     if columns.is_empty() {
-        return Err(Box::new(gen_resp_err(SQL_OUT_COLUMNS_IS_EMPTY, None)));
+        return Err(err_boxed(SQL_OUT_COLUMNS_IS_EMPTY));
     }
     Ok(parse_dapr_body::<T>(result_set, columns, enum_flds)?)
 }
@@ -874,7 +900,7 @@ pub fn de_sql_result_implicit<T: Default + ModelTrait + Debug + DaprBody>(
     enum_flds: fn(&str, &str) -> HttpResult<(bool, Option<i32>)>,
 ) -> HttpResult<Vec<T>> {
     if columns.is_empty() {
-        return Err(Box::new(gen_resp_err(SQL_OUT_COLUMNS_IS_EMPTY, None)));
+        return Err(err_boxed(SQL_OUT_COLUMNS_IS_EMPTY));
     }
     let vs = parse_dapr_body::<T>(result_set, columns, enum_flds)?;
     let mut n_vs = Vec::<T>::new();
@@ -891,11 +917,11 @@ pub fn de_sql_result_implicit_first<T: Default + ModelTrait + Debug + DaprBody>(
     enum_flds: fn(&str, &str) -> HttpResult<(bool, Option<i32>)>,
 ) -> HttpResult<T> {
     if columns.is_empty() {
-        return Err(Box::new(gen_resp_err(SQL_OUT_COLUMNS_IS_EMPTY, None)));
+        return Err(err_boxed(SQL_OUT_COLUMNS_IS_EMPTY));
     }
     let mut vs = parse_dapr_body::<T>(result_set, columns, enum_flds)?;
     if vs.is_empty() {
-        return Err(Box::new(gen_resp_err(DATA_NOT_FOUND, None)));
+        return Err(err_boxed(DATA_NOT_FOUND));
     }
     let n_v = vs[0].downcast_mut::<T>().ok_or(format!("downcast fail"))?;
     Ok(n_v.to_owned())
@@ -990,7 +1016,7 @@ fn parse_dapr_body<T: ModelTrait + Debug + Default + DaprBody>(
                             stack.push(item);
                         }
                         _ => {
-                            return Err(Box::new(gen_resp_err(DAPR_DATA_ILLEGAL, None)));
+                            return Err(err_boxed(DAPR_DATA_ILLEGAL));
                         }
                     }
                 } else {
@@ -1031,7 +1057,7 @@ fn parse_dapr_body<T: ModelTrait + Debug + Default + DaprBody>(
                         _ => {}
                     }
                 } else {
-                    return Err(Box::new(gen_resp_err(DAPR_DATA_ILLEGAL, None)));
+                    return Err(err_boxed(DAPR_DATA_ILLEGAL));
                 }
             }
             ',' => {
@@ -1057,11 +1083,11 @@ fn parse_dapr_body<T: ModelTrait + Debug + Default + DaprBody>(
                             }
                         }
                         _ => {
-                            return Err(Box::new(gen_resp_err(DAPR_DATA_ILLEGAL, None)));
+                            return Err(err_boxed(DAPR_DATA_ILLEGAL));
                         }
                     }
                 } else {
-                    return Err(Box::new(gen_resp_err(DAPR_DATA_ILLEGAL, None)));
+                    return Err(err_boxed(DAPR_DATA_ILLEGAL));
                 }
             }
             '"' => {
@@ -1080,11 +1106,11 @@ fn parse_dapr_body<T: ModelTrait + Debug + Default + DaprBody>(
                             stack.push(item);
                         }
                         _ => {
-                            return Err(Box::new(gen_resp_err(DAPR_DATA_ILLEGAL, None)));
+                            return Err(err_boxed(DAPR_DATA_ILLEGAL));
                         }
                     }
                 } else {
-                    return Err(Box::new(gen_resp_err(DAPR_DATA_ILLEGAL, None)));
+                    return Err(err_boxed(DAPR_DATA_ILLEGAL));
                 }
             }
             '\\' => {
@@ -1100,19 +1126,14 @@ fn parse_dapr_body<T: ModelTrait + Debug + Default + DaprBody>(
 }
 
 pub fn find_dapr_config(config_name: &str) -> HttpResult<DaprConfig> {
-    Ok(DAPR_CONFIG
-        .get(config_name)
-        .ok_or(gen_resp_err(DAPR_CONFIG_NOT_EXIST, Some(String::from(config_name))))?
-        .clone())
+    Ok(DAPR_CONFIG.get(config_name).ok_or(err_full(DAPR_CONFIG_NOT_EXIST, config_name))?.clone())
 }
 
 pub fn find_dapr_execute<'a>(
     exec: &'a mut HashMap<String, (DaprRequest, DaprResponse, Option<Vec<Box<dyn DaprBody>>>)>,
     execute_name: &'a str,
 ) -> HttpResult<&'a mut (DaprRequest, DaprResponse, Option<Vec<Box<dyn DaprBody>>>)> {
-    Ok(exec
-        .get_mut(execute_name)
-        .ok_or(gen_resp_err(DAPR_EXECUTE_NOT_EXIST, Some(String::from(execute_name))))?)
+    Ok(exec.get_mut(execute_name).ok_or(err_full(DAPR_EXECUTE_NOT_EXIST, execute_name))?)
 }
 
 pub fn set_dapr_req<I: ModelTrait + Message + Default, O: ModelTrait + Message, C>(
@@ -1134,10 +1155,7 @@ pub fn set_dapr_res<I: ModelTrait + Message + Default, O: ModelTrait + Message, 
     dapr_res: Vec<Box<dyn DaprBody>>,
     execute_name: &str,
 ) -> HttpResult<ContextWrapper<I, O, C>> {
-    let exec = context
-        .exec
-        .get_mut(execute_name)
-        .ok_or(gen_resp_err(DAPR_EXECUTE_NOT_EXIST, Some(String::from(execute_name))))?;
+    let exec = context.exec.get_mut(execute_name).ok_or(err_full(DAPR_EXECUTE_NOT_EXIST, execute_name))?;
 
     exec.2 = Some(dapr_res);
 
@@ -1148,105 +1166,105 @@ pub fn find_invoke_service(dapr_config: &DaprRequest, config_name: &str) -> Http
     Ok(dapr_config
         .clone()
         .invoke_service
-        .ok_or(gen_resp_err(DAPR_CONFIG_NOT_EXIST, Some(format!("{}.{}", config_name, "invoke_service"))))?)
+        .ok_or(err_full_string(DAPR_CONFIG_NOT_EXIST, format!("{}.{}", config_name, "invoke_service")))?)
 }
 
 pub fn find_get_state(dapr_config: &DaprRequest, config_name: &str) -> HttpResult<GetStateRequest> {
     Ok(dapr_config
         .clone()
         .get_state
-        .ok_or(gen_resp_err(DAPR_CONFIG_NOT_EXIST, Some(format!("{}.{}", config_name, "get_state"))))?)
+        .ok_or(err_full_string(DAPR_CONFIG_NOT_EXIST, format!("{}.{}", config_name, "get_state")))?)
 }
 
 pub fn find_get_bulk_state(dapr_config: &DaprRequest, config_name: &str) -> HttpResult<GetBulkStateRequest> {
     Ok(dapr_config
         .clone()
         .get_bulk_state
-        .ok_or(gen_resp_err(DAPR_CONFIG_NOT_EXIST, Some(format!("{}.{}", config_name, "get_bulk_state"))))?)
+        .ok_or(err_full_string(DAPR_CONFIG_NOT_EXIST, format!("{}.{}", config_name, "get_bulk_state")))?)
 }
 
 pub fn find_query_state(dapr_config: &DaprRequest, config_name: &str) -> HttpResult<QueryStateRequest> {
     Ok(dapr_config
         .clone()
         .query_state
-        .ok_or(gen_resp_err(DAPR_CONFIG_NOT_EXIST, Some(format!("{}.{}", config_name, "query_state"))))?)
+        .ok_or(err_full_string(DAPR_CONFIG_NOT_EXIST, format!("{}.{}", config_name, "query_state")))?)
 }
 
 pub fn find_save_state(dapr_config: &DaprRequest, config_name: &str) -> HttpResult<SaveStateRequest> {
     Ok(dapr_config
         .clone()
         .save_state
-        .ok_or(gen_resp_err(DAPR_CONFIG_NOT_EXIST, Some(format!("{}.{}", config_name, "save_state"))))?)
+        .ok_or(err_full_string(DAPR_CONFIG_NOT_EXIST, format!("{}.{}", config_name, "save_state")))?)
 }
 
 pub fn find_transaction_state(dapr_config: &DaprRequest, config_name: &str) -> HttpResult<ExecuteStateTransactionRequest> {
     Ok(dapr_config
         .clone()
         .transaction_state
-        .ok_or(gen_resp_err(DAPR_CONFIG_NOT_EXIST, Some(format!("{}.{}", config_name, "transaction_state"))))?)
+        .ok_or(err_full_string(DAPR_CONFIG_NOT_EXIST, format!("{}.{}", config_name, "transaction_state")))?)
 }
 
 pub fn find_delete_state(dapr_config: &DaprRequest, config_name: &str) -> HttpResult<DeleteStateRequest> {
     Ok(dapr_config
         .clone()
         .delete_state
-        .ok_or(gen_resp_err(DAPR_CONFIG_NOT_EXIST, Some(format!("{}.{}", config_name, "delete_state"))))?)
+        .ok_or(err_full_string(DAPR_CONFIG_NOT_EXIST, format!("{}.{}", config_name, "delete_state")))?)
 }
 
 pub fn find_delete_bulk_state(dapr_config: &DaprRequest, config_name: &str) -> HttpResult<DeleteBulkStateRequest> {
     Ok(dapr_config
         .clone()
         .delete_bulk_state
-        .ok_or(gen_resp_err(DAPR_CONFIG_NOT_EXIST, Some(format!("{}.{}", config_name, "delete_bulk_state"))))?)
+        .ok_or(err_full_string(DAPR_CONFIG_NOT_EXIST, format!("{}.{}", config_name, "delete_bulk_state")))?)
 }
 
 pub fn find_invoke_binding(dapr_config: &DaprRequest, config_name: &str) -> HttpResult<InvokeBindingRequest> {
     Ok(dapr_config
         .clone()
         .invoke_binding
-        .ok_or(gen_resp_err(DAPR_CONFIG_NOT_EXIST, Some(format!("{}.{}", config_name, "invoke_binding"))))?)
+        .ok_or(err_full_string(DAPR_CONFIG_NOT_EXIST, format!("{}.{}", config_name, "invoke_binding")))?)
 }
 
 pub fn find_invoke_binding_sql(dapr_config: &DaprRequest, config_name: &str) -> HttpResult<InvokeBindingSqlRequest> {
     Ok(dapr_config
         .clone()
         .invoke_binding_sql
-        .ok_or(gen_resp_err(DAPR_CONFIG_NOT_EXIST, Some(format!("{}.{}", config_name, "invoke_binding_sql"))))?)
+        .ok_or(err_full_string(DAPR_CONFIG_NOT_EXIST, format!("{}.{}", config_name, "invoke_binding_sql")))?)
 }
 
 pub fn find_publish_event(dapr_config: &DaprRequest, config_name: &str) -> HttpResult<PublishEventRequest> {
     Ok(dapr_config
         .clone()
         .publish_event
-        .ok_or(gen_resp_err(DAPR_CONFIG_NOT_EXIST, Some(format!("{}.{}", config_name, "publish_event"))))?)
+        .ok_or(err_full_string(DAPR_CONFIG_NOT_EXIST, format!("{}.{}", config_name, "publish_event")))?)
 }
 
 pub fn find_publish_bulk_event(dapr_config: &DaprRequest, config_name: &str) -> HttpResult<BulkPublishRequest> {
     Ok(dapr_config
         .clone()
         .publish_bulk_event
-        .ok_or(gen_resp_err(DAPR_CONFIG_NOT_EXIST, Some(format!("{}.{}", config_name, "publish_bulk_event"))))?)
+        .ok_or(err_full_string(DAPR_CONFIG_NOT_EXIST, format!("{}.{}", config_name, "publish_bulk_event")))?)
 }
 
 pub fn find_get_secret(dapr_config: &DaprRequest, config_name: &str) -> HttpResult<GetSecretRequest> {
     Ok(dapr_config
         .clone()
         .get_secret
-        .ok_or(gen_resp_err(DAPR_CONFIG_NOT_EXIST, Some(format!("{}.{}", config_name, "get_secret"))))?)
+        .ok_or(err_full_string(DAPR_CONFIG_NOT_EXIST, format!("{}.{}", config_name, "get_secret")))?)
 }
 
 pub fn find_get_bluk_secret(dapr_config: &DaprRequest, config_name: &str) -> HttpResult<GetBulkSecretRequest> {
     Ok(dapr_config
         .clone()
         .get_bluk_secret
-        .ok_or(gen_resp_err(DAPR_CONFIG_NOT_EXIST, Some(format!("{}.{}", config_name, "get_bluk_secret"))))?)
+        .ok_or(err_full_string(DAPR_CONFIG_NOT_EXIST, format!("{}.{}", config_name, "get_bluk_secret")))?)
 }
 
 pub fn find_get_configuration(dapr_config: &DaprRequest, config_name: &str) -> HttpResult<GetConfigurationRequest> {
     Ok(dapr_config
         .clone()
         .get_configuration
-        .ok_or(gen_resp_err(DAPR_CONFIG_NOT_EXIST, Some(format!("{}.{}", config_name, "get_configuration"))))?)
+        .ok_or(err_full_string(DAPR_CONFIG_NOT_EXIST, format!("{}.{}", config_name, "get_configuration")))?)
 }
 
 static DIALECT: GenericDialect = GenericDialect {};
@@ -1256,7 +1274,7 @@ fn select_columns(sqls: &str) -> HttpResult<Vec<String>> {
     let mut ast = Parser::parse_sql(&DIALECT, sqls)?;
 
     if ast.len() != 1 {
-        return Err(Box::new(gen_resp_err(QUERY_SQL_IS_NOT_UNIQUE, Some(String::from(sqls)))));
+        return Err(err_boxed_full(QUERY_SQL_IS_NOT_UNIQUE, sqls));
     }
 
     match ast.pop().unwrap() {
@@ -1330,7 +1348,7 @@ fn select_columns(sqls: &str) -> HttpResult<Vec<String>> {
                             _ => {}
                         },
                         SelectItem::QualifiedWildcard(..) | SelectItem::Wildcard(_) => {
-                            return Err(Box::new(gen_resp_err(SQL_NOT_SUPPORT, Some(format!("{}. {}", "*", sqls)))));
+                            return Err(err_boxed_full_string(SQL_NOT_SUPPORT, format!("{}. {}", "*", sqls)));
                         }
                     };
                 }
@@ -1339,7 +1357,7 @@ fn select_columns(sqls: &str) -> HttpResult<Vec<String>> {
             _ => {}
         },
         _ => {
-            return Err(Box::new(gen_resp_err(SQL_NOT_VALID, Some(String::from(sqls)))));
+            return Err(err_boxed_full(SQL_NOT_VALID, sqls));
         }
     };
 
@@ -1355,7 +1373,7 @@ pub fn trans_sql_info(
     match operation {
         SqlOperation::Query => {
             if sqls_tuple.len() != 1 {
-                return Err(Box::new(gen_resp_err(DAPR_DATA_ILLEGAL, Some(String::from("query action have only 1 sql.")))));
+                return Err(err_boxed_full(DAPR_DATA_ILLEGAL, "query action have only 1 sql."));
             }
             let mut deed = de_paramize(sqls_tuple)?;
             let (sql, vs, is_page, offset, page_size) = deed.get_mut(0).unwrap();
@@ -1374,7 +1392,7 @@ pub fn trans_sql_info(
         }
         SqlOperation::QueryPage => {
             if sqls_tuple.len() != 2 {
-                return Err(Box::new(gen_resp_err(DAPR_DATA_ILLEGAL, Some(String::from("query with page have 2 sqls")))));
+                return Err(err_boxed_full(DAPR_DATA_ILLEGAL, "query with page have 2 sqls"));
             }
             let mut deed = de_paramize(sqls_tuple)?;
             let mut page_sqls = Vec::<(String, Vec<rbs::Value>, bool, Option<u64>, Option<u64>)>::new();
@@ -1387,29 +1405,17 @@ pub fn trans_sql_info(
                 }
             });
             if page_sqls.len() != 1 {
-                return Err(Box::new(gen_resp_err(
-                    DAPR_DATA_ILLEGAL,
-                    Some(String::from("query page must have 1 sql that return the total `count`")),
-                )));
+                return Err(err_boxed_full(DAPR_DATA_ILLEGAL, "query page must have 1 sql that return the total `count`"));
             }
             if query_sqls.len() != 1 {
-                return Err(Box::new(gen_resp_err(
-                    DAPR_DATA_ILLEGAL,
-                    Some(String::from("query page must have 1 sql that return the query content")),
-                )));
+                return Err(err_boxed_full(DAPR_DATA_ILLEGAL, "query page must have 1 sql that return the query content"));
             }
             let (page_sql, vs, is_page, offset, page_size) = page_sqls.get_mut(0).unwrap();
             if let None = offset {
-                return Err(Box::new(gen_resp_err(
-                    DAPR_DATA_ILLEGAL,
-                    Some(String::from("page sql must have `offset` param")),
-                )));
+                return Err(err_boxed_full(DAPR_DATA_ILLEGAL, "page sql must have `offset` param"));
             }
             if let None = page_size {
-                return Err(Box::new(gen_resp_err(
-                    DAPR_DATA_ILLEGAL,
-                    Some(String::from("page sql must have `page_size` param")),
-                )));
+                return Err(err_boxed_full(DAPR_DATA_ILLEGAL, "page sql must have `page_size` param"));
             }
             let output_columns = select_columns(&page_sql)?;
             if !page_sql.ends_with(";") {
@@ -1440,10 +1446,7 @@ pub fn trans_sql_info(
         }
         SqlOperation::Exec => {
             if sqls_tuple.is_empty() {
-                return Err(Box::new(gen_resp_err(
-                    DAPR_DATA_ILLEGAL,
-                    Some(String::from("exec action must have at least 1 sql")),
-                )));
+                return Err(err_boxed_full(DAPR_DATA_ILLEGAL, "exec action must have at least 1 sql"));
             }
             let mut deed = de_paramize(sqls_tuple)?;
 
@@ -1480,7 +1483,7 @@ pub fn trans_sql_info(
         }
         SqlOperation::ExecTransaction => {
             if sqls_tuple.len() == 0 {
-                return Err(Box::new(gen_resp_err(DAPR_DATA_ILLEGAL, Some(String::from("exec action have 1 sql at least")))));
+                return Err(err_boxed_full(DAPR_DATA_ILLEGAL, "exec action have 1 sql at least"));
             }
 
             let mut deed = de_paramize(sqls_tuple)?;
@@ -1590,7 +1593,7 @@ pub async fn find_response_auth_header(params: &Params) -> HttpResult<(Option<St
     let tag = INTERNAL_AUTH_TAG.read().await;
 
     if let None = *tag {
-        return Err(Box::new(gen_resp_err(INTERNAL_AUTH_TAG_NOT_SET, None)));
+        return Err(err_boxed(INTERNAL_AUTH_TAG_NOT_SET));
     }
 
     if params.header.contains_key(AuthHeader::XSGAuthInternal.lower_case_value()) {
@@ -1631,7 +1634,7 @@ pub async fn find_response_auth_header(params: &Params) -> HttpResult<(Option<St
     } else if params.header.contains_key(AuthHeader::XSGAuthOIDC.upper_case_value()) {
         todo!();
     } else {
-        return Err(Box::new(gen_resp_err(AUTH_ERROR, Some(String::from("at least one auth type needed")))));
+        return Err(err_boxed_full(AUTH_ERROR, "at least one auth type needed"));
     }
 
     return Ok((None, None));
@@ -1646,18 +1649,18 @@ pub async fn auth_ict(params: &mut Params) -> HttpResult<()> {
     let setted_tag = INTERNAL_AUTH_TAG.read().await;
 
     if let None = *setted_tag {
-        return Err(Box::new(gen_resp_err(INTERNAL_AUTH_TAG_NOT_SET, None)));
+        return Err(err_boxed(INTERNAL_AUTH_TAG_NOT_SET));
     }
 
     if params.header.contains_key(AuthHeader::XSGAuthInternal.lower_case_value()) {
         let internal_tag = params.header.get(AuthHeader::XSGAuthInternal.lower_case_value());
         match internal_tag {
             None => {
-                return Err(Box::new(gen_resp_err(AUTH_ERROR, Some(String::from("internal auth value not found")))));
+                return Err(err_boxed_full(AUTH_ERROR, "internal auth value not found"));
             }
             Some(tag) => {
                 if setted_tag.as_ref().unwrap().ne(tag) {
-                    return Err(Box::new(gen_resp_err(AUTH_ERROR, Some(String::from("internal auth fail")))));
+                    return Err(err_boxed_full(AUTH_ERROR, "internal auth fail"));
                 } else {
                     return Ok(());
                 }
@@ -1667,11 +1670,11 @@ pub async fn auth_ict(params: &mut Params) -> HttpResult<()> {
         let internal_tag = params.header.get(AuthHeader::XSGAuthInternal.upper_case_value());
         match internal_tag {
             None => {
-                return Err(Box::new(gen_resp_err(AUTH_ERROR, Some(String::from("internal auth tag value not found")))));
+                return Err(err_boxed_full(AUTH_ERROR, "internal auth tag value not found"));
             }
             Some(tag) => {
                 if setted_tag.as_ref().unwrap().ne(tag) {
-                    return Err(Box::new(gen_resp_err(AUTH_ERROR, Some(String::from("internal auth fail")))));
+                    return Err(err_boxed_full(AUTH_ERROR, "internal auth fail"));
                 } else {
                     return Ok(());
                 }
@@ -1681,12 +1684,12 @@ pub async fn auth_ict(params: &mut Params) -> HttpResult<()> {
         let jwt_value = params.header.get(AuthHeader::XSGAuthJWT.lower_case_value());
         match jwt_value {
             None => {
-                return Err(Box::new(gen_resp_err(AUTH_ERROR, Some(String::from("jwt auth value not found")))));
+                return Err(err_boxed_full(AUTH_ERROR, "jwt auth value not found"));
             }
             Some(jwt_token) => {
                 let token = auth(jwt_token).await.map_err(|err| {
                     error!("auth error: {}", err);
-                    return Box::new(gen_resp_err(AUTH_ERROR, Some(err.to_string())));
+                    return err_boxed_full_string(AUTH_ERROR, err.to_string());
                 })?;
                 params.header.insert(AuthHeader::XSGAuthJWT.lower_case_value().to_string(), token);
                 return Ok(());
@@ -1696,12 +1699,12 @@ pub async fn auth_ict(params: &mut Params) -> HttpResult<()> {
         let jwt_value = params.header.get(AuthHeader::XSGAuthJWT.upper_case_value());
         match jwt_value {
             None => {
-                return Err(Box::new(gen_resp_err(AUTH_ERROR, Some(String::from("jwt auth value not found")))));
+                return Err(err_boxed_full(AUTH_ERROR, "jwt auth value not found"));
             }
             Some(jwt_token) => {
                 let token = auth(jwt_token).await.map_err(|err| {
                     error!("auth result : {}", err);
-                    return Box::new(gen_resp_err(AUTH_ERROR, Some(err.to_string())));
+                    return err_boxed_full_string(AUTH_ERROR, err.to_string());
                 })?;
                 params.header.insert(AuthHeader::XSGAuthJWT.upper_case_value().to_string(), token);
                 return Ok(());
@@ -1732,7 +1735,7 @@ pub async fn auth_ict(params: &mut Params) -> HttpResult<()> {
     } else if params.header.contains_key(AuthHeader::XSGAuthOIDC.upper_case_value()) {
         todo!();
     } else {
-        return Err(Box::new(gen_resp_err(AUTH_ERROR, Some(String::from("at least one auth type needed")))));
+        return Err(err_boxed_full(AUTH_ERROR, "at least one auth type needed"));
     }
 }
 
@@ -1759,7 +1762,7 @@ async fn auth(token: &String) -> HttpResult<String> {
         AuthHeader::XSGAuthInternal.upper_case_value().to_string(),
         setted_tag
             .as_ref()
-            .ok_or(gen_resp_err(AUTH_ERROR, Some(String::from("internal auth tag value not found"))))?
+            .ok_or(err_full(AUTH_ERROR, "internal auth tag value not found"))?
             .to_string(),
     );
 
@@ -1774,19 +1777,15 @@ async fn auth(token: &String) -> HttpResult<String> {
         .ok_or(format!("execute '{}' of invoke_service response not found", execute_name))?;
 
     let Some(data) = &response.data else {
-        return Err(Box::new(gen_resp_err(DATA_NOT_FOUND, Some(String::from("response data is empty from auth")))));
+        return Err(err_boxed_full(DATA_NOT_FOUND, "response data is empty from auth"));
     };
 
     let token = serde_json::from_slice::<Res<IfRes<JwtToken>>>(&data.value[..])?;
     if token.message.ne("success") {
-        return Err(Box::new(gen_resp_err(
+        return Err(err_boxed_full_string(
             DAPR_REQUEST_FAIL,
-            Some(format!(
-                "response data from auth validate error: {}, response data: {}",
-                token.message,
-                json!(token)
-            )),
-        )));
+            format!("response data from auth validate error: {}, response data: {}", token.message, json!(token)),
+        ));
     }
 
     Ok(token

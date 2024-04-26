@@ -22,7 +22,7 @@ pub trait Validator {
     fn checkout(&self) -> std::result::Result<usize, Box<dyn std::error::Error + Send + Sync>>;
 }
 
-pub mod err {
+pub mod sg_err {
     use std::fmt::Display;
 
     use serde::{Deserialize, Serialize};

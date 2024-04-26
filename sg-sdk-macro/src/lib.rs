@@ -280,7 +280,7 @@ pub fn enum_generate(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
             fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
                 match s {
                     #from_str_token_part
-                    _ => Err(gen_resp_err(ENUM_NOT_FOUND, None)),
+                    _ => Err(err(ENUM_NOT_FOUND)),
                 }
             }
         }
@@ -685,10 +685,10 @@ pub fn enum_convert_for_sql(input: proc_macro::TokenStream) -> proc_macro::Token
                 if enum_flds.contains(&f_name) {
                     match f_name {
                         #pattern_branches_tokens
-                        _ => Err(Box::new(gen_resp_err(
+                        _ => Err(err_boxed_full_string(
                             ENUM_NOT_FOUND,
-                            Some(format!("enum field {} not found", f_name)),
-                        ))),
+                            format!("enum field {} not found", f_name),
+                        )),
                     }
                 } else {
                     Ok((false, None))
