@@ -33,7 +33,7 @@ pub fn prepare_inner_context_for_query_by_app_id(
 pub fn pre_check_permission(
     mut context: ContextWrapper<QueryAppVersions, AppVersion, UserWithIdSid>,
 ) -> HttpResult<ContextWrapper<QueryAppVersions, AppVersion, UserWithIdSid>> {
-    let id = context.inner_context.id.ok_or("user id not found")?;
+    let id = context.inner_context.id.clone().ok_or("user id not found")?;
     let app_id = context.input.app_id.ok_or("app id not found")?;
 
     let mut dapr_comp = None;
