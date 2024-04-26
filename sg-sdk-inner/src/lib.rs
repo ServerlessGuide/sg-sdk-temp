@@ -10,8 +10,9 @@ use crate::{
 };
 
 pub mod config;
+pub mod context_extension;
 pub mod daprs;
-mod inner_biz_result;
+pub mod inner_biz_result;
 pub mod log;
 pub mod macros;
 pub mod model;
@@ -51,9 +52,9 @@ lazy_static! {
     pub static ref URI_HANDLERS: RwLock<Vec<(String, String)>> = RwLock::new(Vec::<(String, String)>::new());
     pub static ref BIZ_RESULT_MAP: RwLock<HashMap<String, BizResult<'static>>> = RwLock::new(HashMap::<String, BizResult>::new());
     pub static ref INCOME_PARAM_MAP: RwLock<HashMap<String, ExtraParamMap>> = RwLock::new(HashMap::<String, ExtraParamMap>::new());
-    pub static ref DAPR_CONFIG: HashMap<String, DaprConfig> = {
+    pub static ref DAPR_CONFIG: DaprConfig = {
         match env::var("DAPR_CONFIG") {
-            Ok(val) => match serde_json::from_str::<HashMap<String, DaprConfig>>(&val) {
+            Ok(val) => match serde_json::from_str::<DaprConfig>(&val) {
                 Ok(v) => v,
                 Err(err) => {
                     eprintln!("env DAPR_CONFIG format error: {}", err);

@@ -142,12 +142,12 @@ pub async fn invoke_service_grpc<I: ModelTrait + prost::Message + Default, O: Mo
     let config = match &dapr_config.invoke_service {
         Some(config) => config,
         None => {
-            return Err(err_boxed_full(DAPR_CONFIG_NOT_EXIST, "dapr_config.invoke_service"));
+            return Err(err_boxed_full(DAPR_COMPONENT_NOT_EXIST, "dapr_config.invoke_service"));
         }
     };
 
     let Some(message) = &config.message else {
-        return Err(err_boxed_full(DAPR_CONFIG_NOT_EXIST, "dapr_config.invoke_service.message"));
+        return Err(err_boxed_full(DAPR_COMPONENT_NOT_EXIST, "dapr_config.invoke_service.message"));
     };
 
     let response = get_dapr_client()
@@ -179,16 +179,16 @@ pub async fn invoke_service_http<I: ModelTrait + prost::Message + Default, O: Mo
     let config = match &dapr_config.invoke_service {
         Some(config) => config,
         None => {
-            return Err(err_boxed_full(DAPR_CONFIG_NOT_EXIST, "dapr_config.invoke_service"));
+            return Err(err_boxed_full(DAPR_COMPONENT_NOT_EXIST, "dapr_config.invoke_service"));
         }
     };
 
     let Some(message) = &config.message else {
-        return Err(err_boxed_full(DAPR_CONFIG_NOT_EXIST, "dapr_config.invoke_service.message"));
+        return Err(err_boxed_full(DAPR_COMPONENT_NOT_EXIST, "dapr_config.invoke_service.message"));
     };
 
     let Some(http_extension) = &message.http_extension else {
-        return Err(err_boxed_full(DAPR_CONFIG_NOT_EXIST, "dapr_config.invoke_service.message.http_extension"));
+        return Err(err_boxed_full(DAPR_COMPONENT_NOT_EXIST, "dapr_config.invoke_service.message.http_extension"));
     };
 
     let mut url = dapr_invoke_service_url_http(&config.id, &message.method)?;
@@ -256,7 +256,7 @@ pub async fn get_state_grpc<I: ModelTrait + prost::Message + Default, O: ModelTr
     let config = match &dapr_config.get_state {
         Some(config) => config,
         None => {
-            return Err(err_boxed_full(DAPR_CONFIG_NOT_EXIST, "dapr_config.get_state"));
+            return Err(err_boxed_full(DAPR_COMPONENT_NOT_EXIST, "dapr_config.get_state"));
         }
     };
 
@@ -289,7 +289,7 @@ pub async fn get_state_http<I: ModelTrait + prost::Message + Default, O: ModelTr
     let config = match &dapr_config.get_state {
         Some(config) => config,
         None => {
-            return Err(err_boxed_full(DAPR_CONFIG_NOT_EXIST, "dapr_config.get_state"));
+            return Err(err_boxed_full(DAPR_COMPONENT_NOT_EXIST, "dapr_config.get_state"));
         }
     };
 
@@ -344,7 +344,7 @@ pub async fn get_bulk_state_http<I: ModelTrait + prost::Message + Default, O: Mo
     let config = match &dapr_config.get_bulk_state {
         Some(config) => config,
         None => {
-            return Err(err_boxed_full(DAPR_CONFIG_NOT_EXIST, "dapr_config.get_bulk_state"));
+            return Err(err_boxed_full(DAPR_COMPONENT_NOT_EXIST, "dapr_config.get_bulk_state"));
         }
     };
 
@@ -385,7 +385,7 @@ pub async fn query_state_http<I: ModelTrait + prost::Message + Default, O: Model
     let config = match &dapr_config.query_state {
         Some(config) => config,
         None => {
-            return Err(err_boxed_full(DAPR_CONFIG_NOT_EXIST, "dapr_config.query_state"));
+            return Err(err_boxed_full(DAPR_COMPONENT_NOT_EXIST, "dapr_config.query_state"));
         }
     };
 
@@ -418,7 +418,7 @@ pub async fn save_state_grpc<I: ModelTrait + prost::Message + Default, O: ModelT
     let config = match &dapr_config.save_state {
         Some(config) => config,
         None => {
-            return Err(err_boxed_full(DAPR_CONFIG_NOT_EXIST, "dapr_config.save_state"));
+            return Err(err_boxed_full(DAPR_COMPONENT_NOT_EXIST, "dapr_config.save_state"));
         }
     };
 
@@ -443,7 +443,7 @@ pub async fn save_state_http<I: ModelTrait + prost::Message + Default, O: ModelT
     let config = match &dapr_config.save_state {
         Some(config) => config,
         None => {
-            return Err(err_boxed_full(DAPR_CONFIG_NOT_EXIST, "dapr_config.save_state"));
+            return Err(err_boxed_full(DAPR_COMPONENT_NOT_EXIST, "dapr_config.save_state"));
         }
     };
 
@@ -468,7 +468,7 @@ pub async fn transaction_state_http<I: ModelTrait + prost::Message + Default, O:
     let config = match &dapr_config.transaction_state {
         Some(config) => config,
         None => {
-            return Err(err_boxed_full(DAPR_CONFIG_NOT_EXIST, "dapr_config.transaction_state"));
+            return Err(err_boxed_full(DAPR_COMPONENT_NOT_EXIST, "dapr_config.transaction_state"));
         }
     };
 
@@ -498,7 +498,7 @@ pub async fn delete_state_grpc<I: ModelTrait + prost::Message + Default, O: Mode
     let config = match &dapr_config.delete_state {
         Some(config) => config,
         None => {
-            return Err(err_boxed_full(DAPR_CONFIG_NOT_EXIST, "dapr_config.delete_state"));
+            return Err(err_boxed_full(DAPR_COMPONENT_NOT_EXIST, "dapr_config.delete_state"));
         }
     };
 
@@ -524,7 +524,7 @@ pub async fn delete_state_http<I: ModelTrait + prost::Message + Default, O: Mode
     let config = match &dapr_config.delete_state {
         Some(config) => config,
         None => {
-            return Err(err_boxed_full(DAPR_CONFIG_NOT_EXIST, "dapr_config.delete_state"));
+            return Err(err_boxed_full(DAPR_COMPONENT_NOT_EXIST, "dapr_config.delete_state"));
         }
     };
 
@@ -593,7 +593,7 @@ pub async fn delete_bulk_state_grpc<I: ModelTrait + prost::Message + Default, O:
     let config = match &dapr_config.delete_bulk_state {
         Some(config) => config,
         None => {
-            return Err(err_boxed_full(DAPR_CONFIG_NOT_EXIST, "dapr_config.delete_bulk_state"));
+            return Err(err_boxed_full(DAPR_COMPONENT_NOT_EXIST, "dapr_config.delete_bulk_state"));
         }
     };
 
@@ -618,7 +618,7 @@ pub async fn delete_bulk_state_http<I: ModelTrait + prost::Message + Default, O:
     let config = match &dapr_config.delete_bulk_state {
         Some(config) => config,
         None => {
-            return Err(err_boxed_full(DAPR_CONFIG_NOT_EXIST, "dapr_config.delete_bulk_state"));
+            return Err(err_boxed_full(DAPR_COMPONENT_NOT_EXIST, "dapr_config.delete_bulk_state"));
         }
     };
 
@@ -645,7 +645,7 @@ pub async fn invoke_binding_grpc_sql<I: ModelTrait + prost::Message + Default, O
     let config = match dapr_config.invoke_binding_sql.to_owned() {
         Some(config) => config,
         None => {
-            return Err(err_boxed_full(DAPR_CONFIG_NOT_EXIST, "dapr_config.invoke_binding_sql"));
+            return Err(err_boxed_full(DAPR_COMPONENT_NOT_EXIST, "dapr_config.invoke_binding_sql"));
         }
     };
 
@@ -758,7 +758,7 @@ pub async fn invoke_binding_grpc<I: ModelTrait + prost::Message + Default, O: Mo
     let config = match dapr_config.invoke_binding.to_owned() {
         Some(config) => config,
         None => {
-            return Err(err_boxed_full(DAPR_CONFIG_NOT_EXIST, "dapr_config.invoke_binding"));
+            return Err(err_boxed_full(DAPR_COMPONENT_NOT_EXIST, "dapr_config.invoke_binding"));
         }
     };
 
@@ -791,7 +791,7 @@ pub async fn invoke_binding_http_sql<I: ModelTrait + prost::Message + Default, O
     let config = match dapr_config.invoke_binding_sql.to_owned() {
         Some(config) => config,
         None => {
-            return Err(err_boxed_full(DAPR_CONFIG_NOT_EXIST, "dapr_config.invoke_binding_sql"));
+            return Err(err_boxed_full(DAPR_COMPONENT_NOT_EXIST, "dapr_config.invoke_binding_sql"));
         }
     };
 
@@ -932,7 +932,7 @@ pub async fn invoke_binding_http<I: ModelTrait + prost::Message + Default, O: Mo
     let config = match &dapr_config.invoke_binding {
         Some(config) => config,
         None => {
-            return Err(err_boxed_full(DAPR_CONFIG_NOT_EXIST, "dapr_config.invoke_binding"));
+            return Err(err_boxed_full(DAPR_COMPONENT_NOT_EXIST, "dapr_config.invoke_binding"));
         }
     };
 
@@ -972,7 +972,7 @@ pub async fn publish_event_grpc<I: ModelTrait + prost::Message + Default, O: Mod
     let config = match &dapr_config.publish_event {
         Some(config) => config,
         None => {
-            return Err(err_boxed_full(DAPR_CONFIG_NOT_EXIST, "dapr_config.publish_event"));
+            return Err(err_boxed_full(DAPR_COMPONENT_NOT_EXIST, "dapr_config.publish_event"));
         }
     };
 
@@ -1004,7 +1004,7 @@ pub async fn publish_event_http<I: ModelTrait + prost::Message + Default, O: Mod
     let config = match &dapr_config.publish_event {
         Some(config) => config,
         None => {
-            return Err(err_boxed_full(DAPR_CONFIG_NOT_EXIST, "dapr_config.publish_event"));
+            return Err(err_boxed_full(DAPR_COMPONENT_NOT_EXIST, "dapr_config.publish_event"));
         }
     };
 
@@ -1030,7 +1030,7 @@ pub async fn publish_bulk_event_http<I: ModelTrait + prost::Message + Default, O
     let config = match &dapr_config.publish_bulk_event {
         Some(config) => config,
         None => {
-            return Err(err_boxed_full(DAPR_CONFIG_NOT_EXIST, "dapr_config.publish_bulk_event"));
+            return Err(err_boxed_full(DAPR_COMPONENT_NOT_EXIST, "dapr_config.publish_bulk_event"));
         }
     };
 
@@ -1070,7 +1070,7 @@ pub async fn get_secret_grpc<I: ModelTrait + prost::Message + Default, O: ModelT
     let config = match &dapr_config.get_secret {
         Some(config) => config,
         None => {
-            return Err(err_boxed_full(DAPR_CONFIG_NOT_EXIST, "dapr_config.get_secret"));
+            return Err(err_boxed_full(DAPR_COMPONENT_NOT_EXIST, "dapr_config.get_secret"));
         }
     };
 
@@ -1100,7 +1100,7 @@ pub async fn get_secret_http<I: ModelTrait + prost::Message + Default, O: ModelT
     let config = match &dapr_config.get_secret {
         Some(config) => config,
         None => {
-            return Err(err_boxed_full(DAPR_CONFIG_NOT_EXIST, "dapr_config.get_secret"));
+            return Err(err_boxed_full(DAPR_COMPONENT_NOT_EXIST, "dapr_config.get_secret"));
         }
     };
 
@@ -1135,7 +1135,7 @@ pub async fn get_bulk_secret_http<I: ModelTrait + prost::Message + Default, O: M
     let config = match &dapr_config.get_bluk_secret {
         Some(config) => config,
         None => {
-            return Err(err_boxed_full(DAPR_CONFIG_NOT_EXIST, "dapr_config.get_bluk_secret"));
+            return Err(err_boxed_full(DAPR_COMPONENT_NOT_EXIST, "dapr_config.get_bluk_secret"));
         }
     };
 
@@ -1168,7 +1168,7 @@ pub async fn get_configuration_http<I: ModelTrait + prost::Message + Default, O:
     let config = match &dapr_config.get_configuration {
         Some(config) => config,
         None => {
-            return Err(err_boxed_full(DAPR_CONFIG_NOT_EXIST, "dapr_config.get_configuration"));
+            return Err(err_boxed_full(DAPR_COMPONENT_NOT_EXIST, "dapr_config.get_configuration"));
         }
     };
 

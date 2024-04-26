@@ -404,28 +404,50 @@ pub struct ExtraParamMap {
 
 #[derive(PartialEq, Eq, Serialize, Deserialize, Debug, Clone, Default)]
 pub struct DaprConfig {
-    pub binding: Option<DaprConfigInfo>,
-    pub state: Option<DaprConfigInfo>,
-    pub pubsub: Option<DaprPubSubConfigInfo>,
-    pub secret: Option<DaprConfigInfo>,
-    pub conf: Option<DaprConfigInfo>,
+    #[serde(with = "nullable_to_vec")]
+    pub binding: Vec<DaprComponentInfo>,
+
+    #[serde(with = "nullable_to_vec")]
+    pub state: Vec<DaprComponentInfo>,
+
+    #[serde(with = "nullable_to_vec")]
+    pub pubsub: Vec<DaprComponentInfo>,
+
+    #[serde(with = "nullable_to_vec")]
+    pub secret: Vec<DaprComponentInfo>,
+
+    #[serde(with = "nullable_to_vec")]
+    pub conf: Vec<DaprComponentInfo>,
 }
 
 #[derive(PartialEq, Eq, Serialize, Deserialize, Debug, Clone, Default)]
-pub struct DaprConfigInfo {
+pub struct DaprComponentInfo {
+    pub bb_type: DaprBuildBlockType,
     pub name: String,
     pub component_type: String,
     pub namespace: Option<String>,
     pub metadata: Option<HashMap<String, String>>,
+    pub topic: Option<String>,
 }
 
 #[derive(PartialEq, Eq, Serialize, Deserialize, Debug, Clone, Default)]
-pub struct DaprPubSubConfigInfo {
+pub struct DaprInvokeServiceInfo {
+    pub bb_type: DaprBuildBlockType,
     pub name: String,
-    pub topic: String,
     pub component_type: String,
     pub namespace: Option<String>,
     pub metadata: Option<HashMap<String, String>>,
+    pub topic: Option<String>,
+}
+
+#[derive(PartialEq, Eq, Serialize, Deserialize, Debug, Clone, Default)]
+pub enum DaprBuildBlockType {
+    #[default]
+    Binding,
+    State,
+    Pubsub,
+    Secret,
+    Conf,
 }
 
 #[derive(Debug, Default)]
@@ -436,14 +458,14 @@ pub struct ContextWrapper<I: ModelTrait + prost::Message + Default, O: ModelTrai
     pub header: HashMap<String, String>,
     pub path_param: HashMap<u8, String>,
     pub query_param: HashMap<String, String>,
-    pub input: Option<I>,
-    pub inputs: Option<BulkT<I>>,
+    pub input: I,
+    pub inputs: Vec<I>,
     pub exec_name: Option<String>,
     pub exec: HashMap<String, (DaprRequest, DaprResponse, Option<Vec<Box<dyn DaprBody>>>)>,
-    pub output: Option<O>,
+    pub output: O,
     pub outputs: Vec<O>,
     pub page_info: Option<PageInfo>,
-    pub inner_context: Option<C>,
+    pub inner_context: C,
 }
 
 #[derive(PartialEq, Eq, Serialize, Deserialize, Clone, Reflect, Model, Validate, ModelValidate, prost::Message)]
@@ -451,6 +473,7 @@ pub struct EmptyInnerContext {}
 
 #[derive(PartialEq, Serialize, Deserialize, Debug, Clone, Default)]
 pub struct DaprRequest {
+    pub _dapr_config: Option<DaprComponentInfo>,
     pub invoke_service: Option<InvokeServiceRequest>,
     pub get_state: Option<GetStateRequest>,
     pub get_bulk_state: Option<GetBulkStateRequest>,
@@ -466,13 +489,6 @@ pub struct DaprRequest {
     pub get_secret: Option<GetSecretRequest>,
     pub get_bluk_secret: Option<GetBulkSecretRequest>,
     pub get_configuration: Option<GetConfigurationRequest>,
-}
-
-#[allow(clippy::derive_partial_eq_without_eq)]
-#[derive(PartialEq, Eq, Serialize, Deserialize, Clone, prost::Message)]
-pub struct BulkT<T: Sync + Send + prost::Message + Default> {
-    #[prost(message, repeated, tag = "1")]
-    pub bulk_data: Vec<T>,
 }
 
 impl DaprRequest {
@@ -491,316 +507,6 @@ impl DaprRequest {
                 }),
                 headers: HashMap::<String, String>::new(),
             }),
-        });
-
-        Ok(s)
-    }
-
-    pub fn make_get_state(dapr_config: &DaprConfig) -> HttpResult<Self> {
-        let mut s: Self = Default::default();
-
-        let Some(config) = dapr_config.state.clone() else {
-            return Err(err_boxed_full_string(DAPR_CONFIG_NOT_EXIST, format!("{}.{}", "DaprConfig", "state")));
-        };
-
-        let mut metadata = HashMap::<String, String>::new();
-
-        if let Some(md) = config.metadata {
-            metadata.extend(md);
-        }
-
-        s.get_state = Some(GetStateRequest {
-            store_name: config.name,
-            key: "".to_string(),
-            consistency: 2,
-            metadata,
-        });
-
-        Ok(s)
-    }
-
-    pub fn make_get_bulk_state(dapr_config: &DaprConfig) -> HttpResult<Self> {
-        let mut s: Self = Default::default();
-
-        let Some(config) = dapr_config.state.clone() else {
-            return Err(err_boxed_full_string(DAPR_CONFIG_NOT_EXIST, format!("{}.{}", "DaprConfig", "state")));
-        };
-
-        let mut metadata = HashMap::<String, String>::new();
-
-        if let Some(md) = config.metadata {
-            metadata.extend(md);
-        }
-
-        s.get_bulk_state = Some(GetBulkStateRequest {
-            store_name: config.name,
-            keys: vec!["".to_string()],
-            parallelism: 1,
-            metadata,
-        });
-
-        Ok(s)
-    }
-
-    pub fn make_query_state(dapr_config: &DaprConfig) -> HttpResult<Self> {
-        let mut s: Self = Default::default();
-
-        let Some(config) = dapr_config.state.clone() else {
-            return Err(err_boxed_full_string(DAPR_CONFIG_NOT_EXIST, format!("{}.{}", "DaprConfig", "state")));
-        };
-
-        let mut metadata = HashMap::<String, String>::new();
-
-        if let Some(md) = config.metadata {
-            metadata.extend(md);
-        }
-
-        s.query_state = Some(QueryStateRequest {
-            store_name: config.name,
-            query: "".to_string(),
-            metadata,
-        });
-
-        Ok(s)
-    }
-
-    pub fn make_save_state(dapr_config: &DaprConfig) -> HttpResult<Self> {
-        let mut s: Self = Default::default();
-
-        let Some(config) = dapr_config.state.clone() else {
-            return Err(err_boxed_full_string(DAPR_CONFIG_NOT_EXIST, format!("{}.{}", "DaprConfig", "state")));
-        };
-
-        s.save_state = Some(SaveStateRequest {
-            store_name: config.name,
-            states: vec![],
-        });
-
-        Ok(s)
-    }
-
-    pub fn make_transaction_state(dapr_config: &DaprConfig) -> HttpResult<Self> {
-        let mut s: Self = Default::default();
-
-        let Some(config) = dapr_config.state.clone() else {
-            return Err(err_boxed_full_string(DAPR_CONFIG_NOT_EXIST, format!("{}.{}", "DaprConfig", "state")));
-        };
-
-        let mut metadata = HashMap::<String, String>::new();
-
-        if let Some(md) = config.metadata {
-            metadata.extend(md);
-        }
-
-        s.transaction_state = Some(ExecuteStateTransactionRequest {
-            store_name: config.name,
-            operations: vec![],
-            metadata,
-        });
-
-        Ok(s)
-    }
-
-    pub fn make_delete_state(dapr_config: &DaprConfig) -> HttpResult<Self> {
-        let mut s: Self = Default::default();
-
-        let Some(config) = dapr_config.state.clone() else {
-            return Err(err_boxed_full_string(DAPR_CONFIG_NOT_EXIST, format!("{}.{}", "DaprConfig", "state")));
-        };
-
-        let mut metadata = HashMap::<String, String>::new();
-
-        if let Some(md) = config.metadata {
-            metadata.extend(md);
-        }
-
-        s.delete_state = Some(DeleteStateRequest {
-            store_name: config.name,
-            key: "".to_string(),
-            etag: None,
-            options: None,
-            metadata: metadata,
-        });
-
-        Ok(s)
-    }
-
-    pub fn make_delete_bulk_state(dapr_config: &DaprConfig) -> HttpResult<Self> {
-        let mut s: Self = Default::default();
-
-        let Some(config) = dapr_config.state.clone() else {
-            return Err(err_boxed_full_string(DAPR_CONFIG_NOT_EXIST, format!("{}.{}", "DaprConfig", "state")));
-        };
-
-        let mut metadata = HashMap::<String, String>::new();
-
-        if let Some(md) = config.metadata {
-            metadata.extend(md);
-        }
-
-        s.delete_bulk_state = Some(DeleteBulkStateRequest {
-            store_name: config.name,
-            states: vec![],
-        });
-
-        Ok(s)
-    }
-
-    pub fn make_invoke_binding(dapr_config: &DaprConfig) -> HttpResult<Self> {
-        let mut s: Self = Default::default();
-
-        let Some(config) = dapr_config.binding.clone() else {
-            return Err(err_boxed_full_string(DAPR_CONFIG_NOT_EXIST, format!("{}.{}", "DaprConfig", "binding")));
-        };
-
-        let mut metadata = HashMap::<String, String>::new();
-
-        if let Some(md) = config.metadata {
-            metadata.extend(md);
-        }
-
-        s.invoke_binding = Some(InvokeBindingRequest {
-            name: config.name,
-            data: vec![],
-            metadata: metadata,
-            operation: "query".to_string(),
-        });
-
-        Ok(s)
-    }
-
-    pub fn make_invoke_binding_sql(dapr_config: &DaprConfig) -> HttpResult<Self> {
-        let mut s: Self = Default::default();
-
-        let Some(config) = dapr_config.binding.clone() else {
-            return Err(err_boxed_full_string(DAPR_CONFIG_NOT_EXIST, format!("{}.{}", "DaprConfig", "binding")));
-        };
-
-        let mut metadata = HashMap::<String, String>::new();
-
-        if let Some(md) = config.metadata {
-            metadata.extend(md);
-        }
-
-        s.invoke_binding_sql = Some(InvokeBindingSqlRequest {
-            name: config.name,
-            data: vec![],
-            metadata: metadata,
-            operation: SqlOperation::Query,
-            sqls: vec![],
-            is_select_page: None,
-        });
-
-        Ok(s)
-    }
-
-    pub fn make_publish_event(dapr_config: &DaprConfig) -> HttpResult<Self> {
-        let mut s: Self = Default::default();
-
-        let Some(config) = dapr_config.pubsub.clone() else {
-            return Err(err_boxed_full_string(DAPR_CONFIG_NOT_EXIST, format!("{}.{}", "DaprConfig", "pubsub")));
-        };
-
-        let mut metadata = HashMap::<String, String>::new();
-
-        if let Some(md) = config.metadata {
-            metadata.extend(md);
-        }
-
-        s.publish_event = Some(PublishEventRequest {
-            pubsub_name: config.name,
-            topic: config.topic,
-            data: vec![],
-            data_content_type: "application/json".to_string(),
-            metadata: metadata,
-        });
-
-        Ok(s)
-    }
-
-    pub fn make_publish_bulk_event(dapr_config: &DaprConfig) -> HttpResult<Self> {
-        let mut s: Self = Default::default();
-
-        let Some(config) = dapr_config.pubsub.clone() else {
-            return Err(err_boxed_full_string(DAPR_CONFIG_NOT_EXIST, format!("{}.{}", "DaprConfig", "pubsub")));
-        };
-
-        let mut metadata = HashMap::<String, String>::new();
-
-        if let Some(md) = config.metadata {
-            metadata.extend(md);
-        }
-
-        s.publish_bulk_event = Some(BulkPublishRequest {
-            pubsub_name: config.name,
-            topic: config.topic,
-            entries: vec![],
-            metadata: metadata,
-        });
-
-        Ok(s)
-    }
-
-    pub fn make_get_secret(dapr_config: &DaprConfig) -> HttpResult<Self> {
-        let mut s: Self = Default::default();
-
-        let Some(config) = dapr_config.secret.clone() else {
-            return Err(err_boxed_full_string(DAPR_CONFIG_NOT_EXIST, format!("{}.{}", "DaprConfig", "secret")));
-        };
-
-        let mut metadata = HashMap::<String, String>::new();
-
-        if let Some(md) = config.metadata {
-            metadata.extend(md);
-        }
-
-        s.get_secret = Some(GetSecretRequest {
-            store_name: config.name,
-            key: "".to_string(),
-            metadata: metadata,
-        });
-
-        Ok(s)
-    }
-
-    pub fn make_get_bulk_secret(dapr_config: &DaprConfig) -> HttpResult<Self> {
-        let mut s: Self = Default::default();
-
-        let Some(config) = dapr_config.secret.clone() else {
-            return Err(err_boxed_full_string(DAPR_CONFIG_NOT_EXIST, format!("{}.{}", "DaprConfig", "secret")));
-        };
-
-        let mut metadata = HashMap::<String, String>::new();
-
-        if let Some(md) = config.metadata {
-            metadata.extend(md);
-        }
-
-        s.get_bluk_secret = Some(GetBulkSecretRequest {
-            store_name: config.name,
-            metadata: metadata,
-        });
-
-        Ok(s)
-    }
-
-    pub fn make_get_configuration(dapr_config: &DaprConfig) -> HttpResult<Self> {
-        let mut s: Self = Default::default();
-
-        let Some(config) = dapr_config.conf.clone() else {
-            return Err(err_boxed_full_string(DAPR_CONFIG_NOT_EXIST, format!("{}.{}", "DaprConfig", "conf")));
-        };
-
-        let mut metadata = HashMap::<String, String>::new();
-
-        if let Some(md) = config.metadata {
-            metadata.extend(md);
-        }
-
-        s.get_configuration = Some(GetConfigurationRequest {
-            store_name: config.name,
-            keys: vec![],
-            metadata,
         });
 
         Ok(s)
@@ -874,7 +580,7 @@ pub struct EmptyInPut {}
 #[derive(PartialEq, Eq, Serialize, Deserialize, Clone, Reflect, Model, Validate, ModelValidate, prost::Message)]
 pub struct EmptyInPuts {}
 
-impl<T: ModelTrait + Message + Default> IfRes<T> {
+impl<T: ModelTrait + Message + Default + Serialize> IfRes<T> {
     pub fn to_message(self) -> IfResMessage {
         let mut any;
         let mut anys;
@@ -882,10 +588,11 @@ impl<T: ModelTrait + Message + Default> IfRes<T> {
             anys = if self.outputs.is_empty() {
                 None
             } else {
-                let bulk_t = BulkT::<T> { bulk_data: self.outputs };
+                let json_value = serde_json::to_value(self.outputs).expect("to json error");
+                let prost_value = serde_json_to_prost(json_value);
                 Some(prost_types::Any {
                     type_url: "".to_string(),
-                    value: bulk_t.encode_to_vec(),
+                    value: prost_value.encode_to_vec(),
                 })
             };
             any = None;

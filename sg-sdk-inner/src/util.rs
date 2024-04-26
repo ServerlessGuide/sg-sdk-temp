@@ -18,6 +18,7 @@ use hyper::{
 };
 use hyper_util::rt::TokioIo;
 use prost::Message;
+use prost_types::value::Kind;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use sqlparser::{
@@ -644,8 +645,8 @@ pub fn set_input_param<I: for<'de> Deserialize<'de> + ModelTrait + prost::Messag
 
 pub async fn params_to_model<
     I: for<'de> Deserialize<'de> + ModelTrait + prost::Message + Default + Serialize,
-    O: for<'de> Deserialize<'de> + ModelTrait + prost::Message,
-    C,
+    O: for<'de> Deserialize<'de> + ModelTrait + prost::Message + Default,
+    C: Default,
 >(
     params: &Params,
 ) -> HttpResult<ContextWrapper<I, O, C>> {
@@ -660,35 +661,51 @@ pub async fn params_to_model<
     let mut input_params;
 
     if params.if_info.bulk_input {
-        input_param = None;
+        input_param = Default::default();
         input_params = if let None = params.body {
-            Some(Default::default())
+            Default::default()
         } else {
             let bytes = params.body.clone().unwrap();
             match params.header.get_key_value("Content-Type") {
-                None => Some(de_bytes_slice::<BulkT<I>>(&bytes[..])?),
+                None => de_bytes_slice::<Vec<I>>(&bytes[..])?,
                 Some((_, value)) => {
                     if value == "application/grpc" || value == "application/grpc+proto" {
-                        Some(BulkT::<I>::decode(&bytes[..])?)
+                        let any = prost_types::Any::decode(&bytes[..])?;
+                        let list_value = prost_types::ListValue::decode(&any.value[..])?;
+                        let mut prost_inputs = Vec::<I>::new();
+                        for ele in list_value.values {
+                            match ele.kind {
+                                None => {}
+                                Some(kind) => match kind {
+                                    Kind::StructValue(struct_value) => {
+                                        let struct_vec = struct_value.encode_to_vec();
+                                        prost_inputs.push(I::decode(&struct_vec[..])?)
+                                    }
+                                    _ => {}
+                                },
+                            }
+                        }
+                        prost_inputs
                     } else {
-                        Some(de_bytes_slice::<BulkT<I>>(&bytes[..])?)
+                        de_bytes_slice::<Vec<I>>(&bytes[..])?
                     }
                 }
             }
         };
     } else {
-        input_params = None;
+        input_params = Default::default();
         input_param = if let None = params.body {
-            Some(Default::default())
+            Default::default()
         } else {
             let bytes = params.body.clone().unwrap();
             match params.header.get_key_value("Content-Type") {
-                None => Some(de_bytes_slice::<I>(&bytes[..])?),
+                None => de_bytes_slice::<I>(&bytes[..])?,
                 Some((_, value)) => {
                     if value == "application/grpc" || value == "application/grpc+proto" {
-                        Some(I::decode(&bytes[..])?)
+                        let any = prost_types::Any::decode(&bytes[..])?;
+                        I::decode(&any.value[..])?
                     } else {
-                        Some(de_bytes_slice::<I>(&bytes[..])?)
+                        de_bytes_slice::<I>(&bytes[..])?
                     }
                 }
             }
@@ -714,33 +731,29 @@ pub async fn params_to_model<
             input: input_param,
             inputs: input_params,
             exec,
-            output: None,
+            output: Default::default(),
             outputs: Vec::<O>::new(),
             exec_name: None,
             header: params.header.clone(),
             path_param: params.path_param.clone(),
             query_param: params.query_param.clone(),
             page_info: None,
-            inner_context: None,
+            inner_context: Default::default(),
         });
     }
 
     let param_map = param_map.unwrap();
 
     if params.if_info.bulk_input {
-        if let Some(input_params) = input_params.as_mut() {
-            for input_param in input_params.bulk_data.iter_mut() {
-                set_input_param(param_map, &params, input_param)?;
-            }
+        for input_param_in in input_params.iter_mut() {
+            set_input_param(param_map, &params, input_param_in)?;
         }
     } else {
-        if let Some(input_param) = input_param.as_mut() {
-            set_input_param(param_map, &params, input_param)?;
-        }
+        set_input_param(param_map, &params, &mut input_param)?;
     }
 
     debug!("input_param model: {:#?}", input_param);
-    debug!("input_params model: {:#?}", input_params);
+    debug!("input_params model: {:#?}", &input_params);
 
     Ok(ContextWrapper {
         saga_id,
@@ -749,14 +762,14 @@ pub async fn params_to_model<
         input: input_param,
         inputs: input_params,
         exec,
-        output: None,
+        output: Default::default(),
         outputs: Vec::<O>::new(),
         exec_name: None,
         header: params.header.clone(),
         path_param: params.path_param.clone(),
         query_param: params.query_param.clone(),
         page_info: None,
-        inner_context: None,
+        inner_context: Default::default(),
     })
 }
 
@@ -764,13 +777,11 @@ pub fn validate<I: ModelTrait + prost::Message + Validate + Default, O: ModelTra
     context: ContextWrapper<I, O, C>,
 ) -> HttpResult<ContextWrapper<I, O, C>> {
     if context.if_info.bulk_input {
-        let bulk_data = &context.inputs.as_ref().ok_or("inputs param not found")?.bulk_data;
-
-        for ele in bulk_data.iter() {
+        for ele in context.inputs.iter() {
             ele.validate()?;
         }
     } else {
-        let _ = &context.input.as_ref().ok_or("input param not found")?.validate()?;
+        let _ = &context.input.validate()?;
     }
 
     Ok(context)
@@ -801,7 +812,7 @@ pub async fn res<I: ModelTrait + Default + prost::Message, O: ModelTrait + Valid
         if_res.output = None;
     } else {
         if_res.outputs = Vec::<O>::new();
-        if_res.output = context.output;
+        if_res.output = Some(context.output);
     }
 
     Ok(if_res)
@@ -1124,8 +1135,54 @@ fn parse_dapr_body<T: ModelTrait + Debug + Default + DaprBody>(
     Ok(ts)
 }
 
-pub fn find_dapr_config(config_name: &str) -> HttpResult<DaprConfig> {
-    Ok(DAPR_CONFIG.get(config_name).ok_or(err_full(DAPR_CONFIG_NOT_EXIST, config_name))?.clone())
+pub fn find_dapr_component_with_type(build_block_type: DaprBuildBlockType, component_name: &str) -> HttpResult<&DaprComponentInfo> {
+    match build_block_type {
+        DaprBuildBlockType::Binding => Ok(find_dapr_binding(component_name)?),
+        DaprBuildBlockType::State => Ok(find_dapr_pubsub(component_name)?),
+        DaprBuildBlockType::Pubsub => Ok(find_dapr_state(component_name)?),
+        DaprBuildBlockType::Secret => Ok(find_dapr_conf(component_name)?),
+        DaprBuildBlockType::Conf => Ok(find_dapr_secret(component_name)?),
+    }
+}
+
+pub fn find_dapr_binding(component_name: &str) -> HttpResult<&DaprComponentInfo> {
+    Ok(DAPR_CONFIG
+        .binding
+        .iter()
+        .find(|e| e.name.eq(component_name))
+        .ok_or(err_full(DAPR_COMPONENT_NOT_EXIST, component_name))?)
+}
+
+pub fn find_dapr_pubsub(component_name: &str) -> HttpResult<&DaprComponentInfo> {
+    Ok(DAPR_CONFIG
+        .pubsub
+        .iter()
+        .find(|e| e.name.eq(component_name))
+        .ok_or(err_full(DAPR_COMPONENT_NOT_EXIST, component_name))?)
+}
+
+pub fn find_dapr_state(component_name: &str) -> HttpResult<&DaprComponentInfo> {
+    Ok(DAPR_CONFIG
+        .state
+        .iter()
+        .find(|e| e.name.eq(component_name))
+        .ok_or(err_full(DAPR_COMPONENT_NOT_EXIST, component_name))?)
+}
+
+pub fn find_dapr_conf(component_name: &str) -> HttpResult<&DaprComponentInfo> {
+    Ok(DAPR_CONFIG
+        .conf
+        .iter()
+        .find(|e| e.name.eq(component_name))
+        .ok_or(err_full(DAPR_COMPONENT_NOT_EXIST, component_name))?)
+}
+
+pub fn find_dapr_secret(component_name: &str) -> HttpResult<&DaprComponentInfo> {
+    Ok(DAPR_CONFIG
+        .secret
+        .iter()
+        .find(|e| e.name.eq(component_name))
+        .ok_or(err_full(DAPR_COMPONENT_NOT_EXIST, component_name))?)
 }
 
 pub fn find_dapr_execute<'a>(
@@ -1165,105 +1222,105 @@ pub fn find_invoke_service(dapr_config: &DaprRequest, config_name: &str) -> Http
     Ok(dapr_config
         .clone()
         .invoke_service
-        .ok_or(err_full_string(DAPR_CONFIG_NOT_EXIST, format!("{}.{}", config_name, "invoke_service")))?)
+        .ok_or(err_full_string(DAPR_COMPONENT_NOT_EXIST, format!("{}.{}", config_name, "invoke_service")))?)
 }
 
 pub fn find_get_state(dapr_config: &DaprRequest, config_name: &str) -> HttpResult<GetStateRequest> {
     Ok(dapr_config
         .clone()
         .get_state
-        .ok_or(err_full_string(DAPR_CONFIG_NOT_EXIST, format!("{}.{}", config_name, "get_state")))?)
+        .ok_or(err_full_string(DAPR_COMPONENT_NOT_EXIST, format!("{}.{}", config_name, "get_state")))?)
 }
 
 pub fn find_get_bulk_state(dapr_config: &DaprRequest, config_name: &str) -> HttpResult<GetBulkStateRequest> {
     Ok(dapr_config
         .clone()
         .get_bulk_state
-        .ok_or(err_full_string(DAPR_CONFIG_NOT_EXIST, format!("{}.{}", config_name, "get_bulk_state")))?)
+        .ok_or(err_full_string(DAPR_COMPONENT_NOT_EXIST, format!("{}.{}", config_name, "get_bulk_state")))?)
 }
 
 pub fn find_query_state(dapr_config: &DaprRequest, config_name: &str) -> HttpResult<QueryStateRequest> {
     Ok(dapr_config
         .clone()
         .query_state
-        .ok_or(err_full_string(DAPR_CONFIG_NOT_EXIST, format!("{}.{}", config_name, "query_state")))?)
+        .ok_or(err_full_string(DAPR_COMPONENT_NOT_EXIST, format!("{}.{}", config_name, "query_state")))?)
 }
 
 pub fn find_save_state(dapr_config: &DaprRequest, config_name: &str) -> HttpResult<SaveStateRequest> {
     Ok(dapr_config
         .clone()
         .save_state
-        .ok_or(err_full_string(DAPR_CONFIG_NOT_EXIST, format!("{}.{}", config_name, "save_state")))?)
+        .ok_or(err_full_string(DAPR_COMPONENT_NOT_EXIST, format!("{}.{}", config_name, "save_state")))?)
 }
 
 pub fn find_transaction_state(dapr_config: &DaprRequest, config_name: &str) -> HttpResult<ExecuteStateTransactionRequest> {
     Ok(dapr_config
         .clone()
         .transaction_state
-        .ok_or(err_full_string(DAPR_CONFIG_NOT_EXIST, format!("{}.{}", config_name, "transaction_state")))?)
+        .ok_or(err_full_string(DAPR_COMPONENT_NOT_EXIST, format!("{}.{}", config_name, "transaction_state")))?)
 }
 
 pub fn find_delete_state(dapr_config: &DaprRequest, config_name: &str) -> HttpResult<DeleteStateRequest> {
     Ok(dapr_config
         .clone()
         .delete_state
-        .ok_or(err_full_string(DAPR_CONFIG_NOT_EXIST, format!("{}.{}", config_name, "delete_state")))?)
+        .ok_or(err_full_string(DAPR_COMPONENT_NOT_EXIST, format!("{}.{}", config_name, "delete_state")))?)
 }
 
 pub fn find_delete_bulk_state(dapr_config: &DaprRequest, config_name: &str) -> HttpResult<DeleteBulkStateRequest> {
     Ok(dapr_config
         .clone()
         .delete_bulk_state
-        .ok_or(err_full_string(DAPR_CONFIG_NOT_EXIST, format!("{}.{}", config_name, "delete_bulk_state")))?)
+        .ok_or(err_full_string(DAPR_COMPONENT_NOT_EXIST, format!("{}.{}", config_name, "delete_bulk_state")))?)
 }
 
 pub fn find_invoke_binding(dapr_config: &DaprRequest, config_name: &str) -> HttpResult<InvokeBindingRequest> {
     Ok(dapr_config
         .clone()
         .invoke_binding
-        .ok_or(err_full_string(DAPR_CONFIG_NOT_EXIST, format!("{}.{}", config_name, "invoke_binding")))?)
+        .ok_or(err_full_string(DAPR_COMPONENT_NOT_EXIST, format!("{}.{}", config_name, "invoke_binding")))?)
 }
 
 pub fn find_invoke_binding_sql(dapr_config: &DaprRequest, config_name: &str) -> HttpResult<InvokeBindingSqlRequest> {
     Ok(dapr_config
         .clone()
         .invoke_binding_sql
-        .ok_or(err_full_string(DAPR_CONFIG_NOT_EXIST, format!("{}.{}", config_name, "invoke_binding_sql")))?)
+        .ok_or(err_full_string(DAPR_COMPONENT_NOT_EXIST, format!("{}.{}", config_name, "invoke_binding_sql")))?)
 }
 
 pub fn find_publish_event(dapr_config: &DaprRequest, config_name: &str) -> HttpResult<PublishEventRequest> {
     Ok(dapr_config
         .clone()
         .publish_event
-        .ok_or(err_full_string(DAPR_CONFIG_NOT_EXIST, format!("{}.{}", config_name, "publish_event")))?)
+        .ok_or(err_full_string(DAPR_COMPONENT_NOT_EXIST, format!("{}.{}", config_name, "publish_event")))?)
 }
 
 pub fn find_publish_bulk_event(dapr_config: &DaprRequest, config_name: &str) -> HttpResult<BulkPublishRequest> {
     Ok(dapr_config
         .clone()
         .publish_bulk_event
-        .ok_or(err_full_string(DAPR_CONFIG_NOT_EXIST, format!("{}.{}", config_name, "publish_bulk_event")))?)
+        .ok_or(err_full_string(DAPR_COMPONENT_NOT_EXIST, format!("{}.{}", config_name, "publish_bulk_event")))?)
 }
 
 pub fn find_get_secret(dapr_config: &DaprRequest, config_name: &str) -> HttpResult<GetSecretRequest> {
     Ok(dapr_config
         .clone()
         .get_secret
-        .ok_or(err_full_string(DAPR_CONFIG_NOT_EXIST, format!("{}.{}", config_name, "get_secret")))?)
+        .ok_or(err_full_string(DAPR_COMPONENT_NOT_EXIST, format!("{}.{}", config_name, "get_secret")))?)
 }
 
 pub fn find_get_bluk_secret(dapr_config: &DaprRequest, config_name: &str) -> HttpResult<GetBulkSecretRequest> {
     Ok(dapr_config
         .clone()
         .get_bluk_secret
-        .ok_or(err_full_string(DAPR_CONFIG_NOT_EXIST, format!("{}.{}", config_name, "get_bluk_secret")))?)
+        .ok_or(err_full_string(DAPR_COMPONENT_NOT_EXIST, format!("{}.{}", config_name, "get_bluk_secret")))?)
 }
 
 pub fn find_get_configuration(dapr_config: &DaprRequest, config_name: &str) -> HttpResult<GetConfigurationRequest> {
     Ok(dapr_config
         .clone()
         .get_configuration
-        .ok_or(err_full_string(DAPR_CONFIG_NOT_EXIST, format!("{}.{}", config_name, "get_configuration")))?)
+        .ok_or(err_full_string(DAPR_COMPONENT_NOT_EXIST, format!("{}.{}", config_name, "get_configuration")))?)
 }
 
 static DIALECT: GenericDialect = GenericDialect {};
@@ -1366,7 +1423,7 @@ fn select_columns(sqls: &str) -> HttpResult<Vec<String>> {
 pub fn trans_sql_info(
     sqls_tuple: Vec<(String, Vec<rbs::Value>, bool, Option<u64>, Option<u64>)>,
     operation: SqlOperation,
-    dapr_config: &DaprConfig,
+    dapr_component: &DaprComponentInfo,
 ) -> HttpResult<Vec<SqlWithParams>> {
     let mut res: Vec<SqlWithParams> = vec![];
     match operation {
@@ -1521,10 +1578,9 @@ pub fn trans_sql_info(
         }
     }
 
-    match &dapr_config.binding {
-        None => {}
-        Some(config) => {
-            if config.component_type == "bindings.postgresql" {
+    match &dapr_component.bb_type {
+        DaprBuildBlockType::Binding => {
+            if dapr_component.component_type == "bindings.postgresql" {
                 for sql_with_param in res.iter_mut() {
                     let mut new_sql = String::from("");
                     let chars = sql_with_param.sql.clone().chars().collect::<Vec<char>>();
@@ -1542,6 +1598,10 @@ pub fn trans_sql_info(
                 }
             }
         }
+        DaprBuildBlockType::State => todo!(),
+        DaprBuildBlockType::Pubsub => todo!(),
+        DaprBuildBlockType::Secret => todo!(),
+        DaprBuildBlockType::Conf => todo!(),
     }
 
     Ok(res)
@@ -1765,7 +1825,7 @@ async fn auth(token: &String) -> HttpResult<String> {
             .to_string(),
     );
 
-    let context: ContextWrapper<EmptyInPut, EmptyOutPut, EmptyInnerContext> = Default::default();
+    let mut context: ContextWrapper<EmptyInPut, EmptyOutPut, EmptyInnerContext> = Default::default();
     let context = set_dapr_req(context, dapr_req_ins, execute_name)?;
     let mut context = invoke_service_http(context).await?;
 
@@ -1794,4 +1854,43 @@ async fn auth(token: &String) -> HttpResult<String> {
         .ok_or("result output is empty")?
         .token
         .ok_or("result output token string is empty")?)
+}
+
+pub fn to_struct(json: serde_json::Map<String, serde_json::Value>) -> prost_types::Struct {
+    prost_types::Struct {
+        fields: json.into_iter().map(|(k, v)| (k, serde_json_to_prost(v))).collect(),
+    }
+}
+
+pub fn serde_json_to_prost(json: serde_json::Value) -> prost_types::Value {
+    use prost_types::value::Kind::*;
+    use serde_json::Value::*;
+    prost_types::Value {
+        kind: Some(match json {
+            Null => NullValue(0 /* wat? */),
+            Bool(v) => BoolValue(v),
+            Number(n) => NumberValue(n.as_f64().expect("Non-f64-representable number")),
+            String(s) => StringValue(s),
+            Array(v) => ListValue(prost_types::ListValue {
+                values: v.into_iter().map(serde_json_to_prost).collect(),
+            }),
+            Object(v) => StructValue(to_struct(v)),
+        }),
+    }
+}
+
+pub fn prost_to_serde_json(x: prost_types::Value) -> serde_json::Value {
+    use prost_types::value::Kind::*;
+    use serde_json::Value::*;
+    match x.kind {
+        Some(x) => match x {
+            NullValue(_) => Null,
+            BoolValue(v) => Bool(v),
+            NumberValue(n) => Number(serde_json::Number::from_f64(n).unwrap()),
+            StringValue(s) => String(s),
+            ListValue(lst) => Array(lst.values.into_iter().map(prost_to_serde_json).collect()),
+            StructValue(v) => Object(v.fields.into_iter().map(|(k, v)| (k, prost_to_serde_json(v))).collect()),
+        },
+        None => panic!("todo"),
+    }
 }

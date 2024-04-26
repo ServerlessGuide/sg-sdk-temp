@@ -158,7 +158,7 @@ pub async fn handle_http<T: Serialize + prost::Message + ModelTrait + Default>(
     }
 }
 
-pub async fn handle_grpc<T: prost::Message + ModelTrait + Default>(
+pub async fn handle_grpc<T: prost::Message + ModelTrait + Default + Serialize>(
     http_res: HttpResult<IfRes<T>>,
     params: &Params,
 ) -> GrpcResult<tonic::Response<InvokeResponse>> {

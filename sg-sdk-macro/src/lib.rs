@@ -746,7 +746,7 @@ pub fn biz_result_handler(args: proc_macro::TokenStream, input: proc_macro::Toke
     biz_res_needed.push(BizResultArg::new("ENUM_NOT_FOUND", 500, 16, "enum not found"));
     biz_res_needed.push(BizResultArg::new("IMPLICIT_RESPONSE_ERROR", 500, 17, "implicit response error"));
     biz_res_needed.push(BizResultArg::new("BIZ_RESULT_NOT_FOUND", 500, 18, "biz result not found"));
-    biz_res_needed.push(BizResultArg::new("DAPR_CONFIG_NOT_EXIST", 500, 19, "dapr config not exist"));
+    biz_res_needed.push(BizResultArg::new("DAPR_COMPONENT_NOT_EXIST", 500, 19, "dapr config not exist"));
     biz_res_needed.push(BizResultArg::new("EXEC_NAME_NOT_EXIST", 500, 20, "execute name not exist"));
     biz_res_needed.push(BizResultArg::new("DAPR_EXECUTE_NOT_EXIST", 500, 21, "dapr execute not exist"));
     biz_res_needed.push(BizResultArg::new("QUERY_SQL_IS_NOT_UNIQUE", 500, 22, "query sql is not unique"));

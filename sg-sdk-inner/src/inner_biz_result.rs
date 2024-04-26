@@ -22,7 +22,7 @@ biz_result! {
     (ENUM_NOT_FOUND, 500, 999916, "enum not found");
     (IMPLICIT_RESPONSE_ERROR, 500, 999917, "implicit response error");
     (BIZ_RESULT_NOT_FOUND, 500, 999918, "biz result not found");
-    (DAPR_CONFIG_NOT_EXIST, 500, 999919, "dapr config not exist");
+    (DAPR_COMPONENT_NOT_EXIST, 500, 999919, "dapr config not exist");
     (EXEC_NAME_NOT_EXIST, 500, 999920, "execute name not exist");
     (DAPR_EXECUTE_NOT_EXIST, 500, 999921, "dapr execute not exist");
     (QUERY_SQL_IS_NOT_UNIQUE, 500, 999922, "query sql is not unique");
