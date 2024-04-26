@@ -27,7 +27,6 @@ use sqlparser::{
 };
 use std::{
     collections::HashMap,
-    error::Error,
     fmt::{Debug, Display},
     str::FromStr,
 };

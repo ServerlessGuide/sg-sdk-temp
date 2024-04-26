@@ -62,7 +62,7 @@ pub async fn start_grpc<GrpcDispatcher: GrpcRequestDispatcherTrait + Send + Copy
     info!("Listening on grpc port {}", grpc_addr);
 
     let grpc_serve = async move {
-        let callback_service = GrpcService::<GrpcDispatcher> { placeholder: None };
+        let callback_service = GrpcService::<GrpcDispatcher> { _placeholder: None };
 
         Server::builder()
             .add_service(AppCallbackServer::new(callback_service))
@@ -104,7 +104,7 @@ async fn http_service<HttpDispatcher: HttpRequestDispatcherTrait + Send + Copy +
 }
 
 pub struct GrpcService<GrpcDispatcher: GrpcRequestDispatcherTrait + Send + Copy + 'static> {
-    placeholder: Option<GrpcDispatcher>,
+    _placeholder: Option<GrpcDispatcher>,
 }
 
 #[tonic::async_trait]
