@@ -1,3 +1,3 @@
 FROM scratch
-ADD target/x86_64-unknown-linux-musl/release/basis .
-CMD ["/basis"]
+ADD target/x86_64-unknown-linux-musl/release/example .
+CMD ["/example"]

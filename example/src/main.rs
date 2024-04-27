@@ -94,9 +94,9 @@ skip_auth_uri!(ForConfig, (INSERT, QUERY_BY_APP_ID));
 
 uri! {
     ForConfig,
-    (QUERY_BY_APP_ID, GET, "^/app-version/\\d{19}$", Query, false, true);
-    (INSERT, POST, "^/app-version$", Insert, false, false);
-    (ENV_PREPARE, GET, "^/app-version/\\d{19}/env-prepare$", Function, false, false);
+    (QUERY_BY_APP_ID, GET, "^/example/\\d{19}$", Query, false, true);
+    (INSERT, POST, "^/example$", Insert, false, false);
+    (ENV_PREPARE, GET, "^/example/\\d{19}/env-prepare$", Function, false, false);
 }
 
 income_param! {
