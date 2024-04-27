@@ -271,15 +271,15 @@ pub fn pre_insert(mut context: ContextWrapper<AppVersion, EmptyOutPut, UserWithI
     Ok(context)
 }
 
-pub fn post_insert(mut context: ContextWrapper<AppVersion, EmptyOutPut, UserWithIdSid>) -> HttpResult<ContextWrapper<AppVersion, EmptyOutPut, UserWithIdSid>> {
+pub fn post_insert(context: ContextWrapper<AppVersion, EmptyOutPut, UserWithIdSid>) -> HttpResult<ContextWrapper<AppVersion, EmptyOutPut, UserWithIdSid>> {
     Ok(context)
 }
 
 pub fn pre_check_permission_for_env_prepare(
     context: ContextWrapper<AppVersion, EmptyOutPut, UserWithIdSid>,
 ) -> HttpResult<ContextWrapper<AppVersion, EmptyOutPut, UserWithIdSid>> {
-    let id = &context.inner_context.id.clone().ok_or("user id not found")?;
-    let app_version_id = &context.input.id.ok_or("app version id not found")?;
+    let id = context.inner_context.id.clone().ok_or("user id not found")?;
+    let app_version_id = context.input.id.ok_or("app version id not found")?;
 
     let mut dapr_comp = None;
 
@@ -302,7 +302,7 @@ where
     and v.id = ?;
 "#
                 .to_string(),
-                vec![rbs::Value::I64(id.to_owned().parse()?), rbs::Value::I64(app_version_id.to_owned())],
+                vec![rbs::Value::I64(id.parse()?), rbs::Value::I64(app_version_id)],
                 false,
                 None,
                 None,
