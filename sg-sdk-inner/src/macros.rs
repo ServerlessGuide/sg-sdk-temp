@@ -94,7 +94,7 @@ macro_rules! uri {
 macro_rules! generate_http_dispatcher {
     ($acceptor:ident,[$(($uri_name:ident, $fn_name:ident)$(,)?)*]) => {
         impl HttpRequestDispatcherTrait for $acceptor {
-            async fn do_http_dispatch(params: Params) -> HttpResult<hyper::Response<body::Body>> {
+            async fn do_http_dispatch(params: Params) -> HttpResult<hyper::Response<Either<body::Body, body::BodySt>>> {
                 match params.uri.as_str() {
                     $(
                         stringify!($uri_name) => handle_http($fn_name(&params).await, &params).await,

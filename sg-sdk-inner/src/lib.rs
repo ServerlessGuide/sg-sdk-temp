@@ -25,10 +25,14 @@ pub mod traits;
 pub mod util;
 
 pub mod body {
-    use http_body_util::{Either, Empty, Full};
+    use std::convert::Infallible;
+
+    use http_body_util::{combinators::BoxBody, Either, Empty, Full};
     use hyper::body::Bytes;
 
     pub type Body = Either<Empty<Bytes>, Full<Bytes>>;
+
+    pub type BodySt = Either<Empty<Bytes>, BoxBody<Bytes, Infallible>>;
 
     pub fn empty() -> Body {
         Either::Left(Empty::new())
@@ -36,6 +40,10 @@ pub mod body {
 
     pub fn bytes<B: Into<Bytes>>(chunk: B) -> Body {
         Either::Right(Full::from(chunk.into()))
+    }
+
+    pub fn stream_body(chunk_stream: BoxBody<Bytes, Infallible>) -> BodySt {
+        Either::Right(chunk_stream)
     }
 }
 

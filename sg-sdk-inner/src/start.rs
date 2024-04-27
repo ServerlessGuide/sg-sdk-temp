@@ -7,6 +7,7 @@ use dapr::{
     },
     dapr::dapr::proto::runtime::v1::app_callback_server::{AppCallback, AppCallbackServer},
 };
+use http_body_util::Either;
 use hyper::{body::Incoming, server::conn::http1, service::service_fn, Request, Response};
 use hyper_util::rt::TokioIo;
 use prost::Message;
@@ -27,10 +28,7 @@ use crate::{
     GrpcResult, HttpResult, *,
 };
 
-use self::{
-    model::{GrpcRequestDispatcherTrait, HttpRequestDispatcherTrait},
-    traits::ModelTrait,
-};
+use self::traits::{DaprBody, GrpcRequestDispatcherTrait, HttpRequestDispatcherTrait, ModelTrait};
 
 pub async fn start_http<HttpDispatcher: HttpRequestDispatcherTrait + Send + Copy + 'static>(port: u16) -> HttpResult<()> {
     let http_addr = SocketAddr::from(([0, 0, 0, 0], port));
@@ -84,7 +82,9 @@ pub async fn start_http_grpc<OneDispatcher: HttpRequestDispatcherTrait + GrpcReq
     Ok(())
 }
 
-async fn http_service<HttpDispatcher: HttpRequestDispatcherTrait + Send + Copy + 'static>(req: Request<Incoming>) -> HttpResult<Response<body::Body>> {
+async fn http_service<HttpDispatcher: HttpRequestDispatcherTrait + Send + Copy + 'static>(
+    req: Request<Incoming>,
+) -> HttpResult<Response<Either<body::Body, body::BodySt>>> {
     let params = util::parse_params(req).await;
     let mut params = match params {
         Ok(params) => params,
@@ -148,18 +148,18 @@ impl<GrpcDispatcher: GrpcRequestDispatcherTrait + Send + Copy + Sync> AppCallbac
     }
 }
 
-pub async fn handle_http<T: Serialize + prost::Message + ModelTrait + Default>(
-    http_res: HttpResult<IfRes<T>>,
+pub async fn handle_http<T: Serialize + prost::Message + ModelTrait + Default + DaprBody>(
+    http_res: HttpResult<(IfRes<T>, HashMap<String, String>)>,
     params: &Params,
-) -> HttpResult<Response<body::Body>> {
+) -> HttpResult<Response<Either<body::Body, body::BodySt>>> {
     match http_res {
-        Ok(if_res) => Ok(util::gen_resp_ok(OK, if_res, &params).await),
+        Ok((if_res, response_header)) => Ok(util::gen_resp_ok(OK, if_res, response_header, &params).await),
         Err(err) => Ok(util::err_resolve(err).await),
     }
 }
 
 pub async fn handle_grpc<T: prost::Message + ModelTrait + Default + Serialize>(
-    http_res: HttpResult<IfRes<T>>,
+    http_res: HttpResult<(IfRes<T>, HashMap<String, String>)>,
     params: &Params,
 ) -> GrpcResult<tonic::Response<InvokeResponse>> {
     match http_res {
@@ -168,7 +168,7 @@ pub async fn handle_grpc<T: prost::Message + ModelTrait + Default + Serialize>(
                 content_type: "application/grpc".to_string(),
                 data: Some(prost_types::Any {
                     type_url: "".to_string(),
-                    value: if_res.to_message().encode_to_vec(),
+                    value: if_res.0.to_message().encode_to_vec(),
                 }),
                 headers: HashMap::<String, String>::new(),
             });

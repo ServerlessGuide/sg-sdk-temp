@@ -1,9 +1,7 @@
 use bevy_reflect::{GetField, Reflect};
 
 use dapr::dapr::dapr::proto::{common::v1::*, runtime::v1::*};
-use downcast_rs::{impl_downcast, Downcast};
 use hyper::Method;
-use hyper::Response;
 use prost::Message;
 use serde::{Deserialize, Serialize};
 use sg_sdk_macro::Model;
@@ -79,6 +77,7 @@ pub enum ParamFrom {
     Path,
     Query,
     Body,
+    FormData,
 }
 
 impl FromStr for ParamFrom {
@@ -90,6 +89,7 @@ impl FromStr for ParamFrom {
             "Path" => Ok(ParamFrom::Path),
             "Query" => Ok(ParamFrom::Query),
             "Body" => Ok(ParamFrom::Body),
+            "FormData" => Ok(ParamFrom::FormData),
             _ => Err(err(ENUM_NOT_FOUND)),
         }
     }
@@ -102,6 +102,7 @@ impl ToString for ParamFrom {
             ParamFrom::Path => String::from("Path"),
             ParamFrom::Query => String::from("Query"),
             ParamFrom::Body => String::from("Body"),
+            ParamFrom::FormData => String::from("FormData"),
         }
     }
 }
@@ -490,6 +491,8 @@ pub struct ContextWrapper<I: ModelTrait + prost::Message + Default, O: ModelTrai
     pub outputs: Vec<O>,
     pub page_info: Option<PageInfo>,
     pub inner_context: C,
+    pub form_data: Option<Vec<FormDataParam>>,
+    pub response_header: HashMap<String, String>,
 }
 
 #[derive(PartialEq, Eq, Serialize, Deserialize, Clone, Reflect, Model, Validate, ModelValidate, prost::Message)]
@@ -536,17 +539,6 @@ impl DaprRequest {
         Ok(s)
     }
 }
-
-pub trait DaprBody: Debug + Send + Downcast {
-    fn as_dapr_body(self) -> Box<dyn DaprBody>
-    where
-        Self: Sized,
-    {
-        Box::new(self)
-    }
-}
-
-impl_downcast!(DaprBody);
 
 #[derive(PartialEq, Eq, Clone, Deserialize, Serialize, Message)]
 pub struct EmptyDaprBody {}
@@ -595,14 +587,30 @@ pub struct IfRes<T: ModelTrait + Message + Default> {
 #[derive(PartialEq, Eq, Serialize, Deserialize, Clone, Reflect, Model, Validate, ModelValidate, prost::Message)]
 pub struct EmptyOutPut {}
 
+impl DaprBody for EmptyOutPut {}
+
+#[derive(PartialEq, Eq, Serialize, Deserialize, Clone, Reflect, Model, Validate, ModelValidate, prost::Message)]
+pub struct BinaryOutPut {
+    #[prost(bytes = "vec", optional, tag = "1")]
+    pub binary: Option<Vec<u8>>,
+}
+
+impl DaprBody for BinaryOutPut {}
+
 #[derive(PartialEq, Eq, Serialize, Deserialize, Clone, Reflect, Model, Validate, ModelValidate, prost::Message)]
 pub struct EmptyOutPuts {}
+
+impl DaprBody for EmptyOutPuts {}
 
 #[derive(PartialEq, Eq, Serialize, Deserialize, Clone, Reflect, Model, Validate, ModelValidate, prost::Message)]
 pub struct EmptyInPut {}
 
+impl DaprBody for EmptyInPut {}
+
 #[derive(PartialEq, Eq, Serialize, Deserialize, Clone, Reflect, Model, Validate, ModelValidate, prost::Message)]
 pub struct EmptyInPuts {}
+
+impl DaprBody for EmptyInPuts {}
 
 impl<T: ModelTrait + Message + Default + Serialize> IfRes<T> {
     pub fn to_message(self) -> IfResMessage {
@@ -1024,10 +1032,13 @@ pub struct JwtToken {
 
 impl DaprBody for JwtToken {}
 
-pub trait HttpRequestDispatcherTrait {
-    fn do_http_dispatch(params: Params) -> impl std::future::Future<Output = HttpResult<Response<body::Body>>> + Send;
+#[derive(PartialEq, Eq, Debug, Serialize, Deserialize, Clone)]
+pub struct FormDataParam {
+    pub field_name: Option<String>,
+
+    pub file_name: Option<String>,
+
+    pub data: Option<Box<Vec<u8>>>,
 }
 
-pub trait GrpcRequestDispatcherTrait {
-    fn do_grpc_dispatch(params: Params) -> impl std::future::Future<Output = GrpcResult<tonic::Response<InvokeResponse>>> + Send;
-}
+impl DaprBody for FormDataParam {}

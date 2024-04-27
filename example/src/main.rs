@@ -4,10 +4,11 @@ mod biz_model;
 use bevy_reflect::{GetField, Reflect};
 use biz_model::*;
 use dapr::appcallback::InvokeResponse;
+use http_body_util::Either;
 use pipe_trait::*;
 use rbatis::*;
 use serde::*;
-use sg_sdk_inner::{config::*, daprs::*, log::*, model::*, start::*, traits::*, util::*, sql_builder::*, *};
+use sg_sdk_inner::{daprs::*, log::*, model::*, start::*, traits::*, util::*, *};
 use sg_sdk_macro::*;
 use std::collections::*;
 use std::str::FromStr;
@@ -19,7 +20,7 @@ use validator_derive::Validate;
 extern crate lazy_static;
 extern crate rbatis;
 
-async fn query_by_app_id(params: &Params) -> HttpResult<IfRes<AppVersion>> {
+async fn query_by_app_id(params: &Params) -> HttpResult<(IfRes<AppVersion>, HashMap<String, String>)> {
     params
         .pipe(util::params_to_model::<QueryAppVersions, AppVersion, UserWithIdSid>)
         .await?
@@ -37,7 +38,7 @@ async fn query_by_app_id(params: &Params) -> HttpResult<IfRes<AppVersion>> {
         .await
 }
 
-async fn insert(params: &Params) -> HttpResult<IfRes<EmptyOutPut>> {
+async fn insert(params: &Params) -> HttpResult<(IfRes<EmptyOutPut>, HashMap<String, String>)> {
     params
         .pipe(util::params_to_model::<AppVersion, EmptyOutPut, UserWithIdSid>)
         .await?
@@ -58,7 +59,7 @@ async fn insert(params: &Params) -> HttpResult<IfRes<EmptyOutPut>> {
         .await
 }
 
-async fn env_prepare(params: &Params) -> HttpResult<IfRes<EmptyOutPut>> {
+async fn env_prepare(params: &Params) -> HttpResult<(IfRes<EmptyOutPut>, HashMap<String, String>)> {
     params
         .pipe(util::params_to_model::<AppVersion, EmptyOutPut, UserWithIdSid>)
         .await?

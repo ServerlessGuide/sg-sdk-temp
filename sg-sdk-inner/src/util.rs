@@ -10,9 +10,11 @@ use dapr::{
         BulkPublishRequest, ExecuteStateTransactionRequest, GetBulkSecretRequest, GetBulkStateRequest, GetConfigurationRequest, QueryStateRequest,
     },
 };
+use futures_util::{stream::once, TryStreamExt};
+use http_body::Frame;
 use http_body_util::*;
 use hyper::{
-    body::Incoming,
+    body::{Bytes, Incoming},
     header::{self, HeaderName, HeaderValue},
     Method, Request, Response, StatusCode,
 };
@@ -27,7 +29,9 @@ use sqlparser::{
     parser::Parser,
 };
 use std::{
+    any::TypeId,
     collections::HashMap,
+    convert::Infallible,
     fmt::{Debug, Display},
     str::FromStr,
 };
@@ -36,7 +40,7 @@ use tonic::Status;
 use tracing::{debug, error, info, trace, warn};
 use validator::Validate;
 
-use self::traits::{ModelTrait, Validator};
+use self::traits::{DaprBody, ModelTrait, Validator};
 
 #[derive(Debug, Clone)]
 pub struct ResponseError {
@@ -100,7 +104,7 @@ impl ResponseError {
     }
 }
 
-pub async fn err_resolve(err: Box<dyn std::error::Error + Send + Sync>) -> Response<body::Body> {
+pub async fn err_resolve(err: Box<dyn std::error::Error + Send + Sync>) -> Response<Either<body::Body, body::BodySt>> {
     debug!(
         "============================handle finish with error============================\nend time: {}\n{:#?}",
         utc_timestamp(),
@@ -175,7 +179,7 @@ pub async fn err_resolve(err: Box<dyn std::error::Error + Send + Sync>) -> Respo
     }
 }
 
-pub fn gen_resp<T: Serialize + Display>(status_code: u16, body: Res<T>) -> Response<body::Body> {
+pub fn gen_resp<T: Serialize + Display>(status_code: u16, body: Res<T>) -> Response<Either<body::Body, body::BodySt>> {
     let mut response_builder = Response::builder();
 
     let code = StatusCode::from_u16(status_code);
@@ -186,7 +190,7 @@ pub fn gen_resp<T: Serialize + Display>(status_code: u16, body: Res<T>) -> Respo
     response_builder = response_builder.status(code);
 
     let value = serde_json::to_value(body).unwrap().to_string();
-    let resp = response_builder.body(body::bytes(value)).unwrap();
+    let resp = response_builder.body(Either::Left(body::bytes(value))).unwrap();
 
     resp
 }
@@ -233,10 +237,18 @@ pub fn err_full_string<'a>(biz_res: BizResult<'static>, message: String) -> Resp
     }
 }
 
-pub async fn gen_resp_ok<T: Serialize>(biz_res: BizResult<'static>, result: T, params: &Params) -> Response<body::Body> {
+pub async fn gen_resp_ok<T: DaprBody + Serialize + 'static + ModelTrait + prost::Message + std::default::Default>(
+    biz_res: BizResult<'static>,
+    result: IfRes<T>,
+    response_header: HashMap<String, String>,
+    params: &Params,
+) -> Response<Either<body::Body, body::BodySt>> {
     let mut response_builder = Response::builder();
 
-    response_builder = response_builder.header(header::CONTENT_TYPE, HeaderValue::from_str("application/json").unwrap());
+    match response_header.get(header::CONTENT_TYPE.as_str()) {
+        Some(v) => response_builder = response_builder.header(header::CONTENT_TYPE, HeaderValue::from_str(v).unwrap()),
+        None => response_builder = response_builder.header(header::CONTENT_TYPE, HeaderValue::from_str("application/json").unwrap()),
+    };
 
     let token_pair = find_response_auth_header(params).await.unwrap();
 
@@ -257,19 +269,45 @@ pub async fn gen_resp_ok<T: Serialize>(biz_res: BizResult<'static>, result: T, p
         response_builder = response_builder.status(code.unwrap());
     }
 
-    let resp_body = Res::<T> {
-        code: biz_res.biz_code(),
-        message: biz_res.message(),
-        result: Some(result),
-    };
-    let json = serde_json::to_string(&resp_body).unwrap();
-    let resp = response_builder.body(body::bytes(json.as_bytes().to_vec())).unwrap();
+    if TypeId::of::<IfRes<T>>() == TypeId::of::<IfRes<BinaryOutPut>>() {
+        let binary = match result.output {
+            None => Box::new(Vec::<u8>::new()),
+            Some(binary) => {
+                let mut bin_dapr_body = binary.as_dapr_body();
+                match bin_dapr_body.downcast_mut::<BinaryOutPut>() {
+                    None => Box::new(Vec::<u8>::new()),
+                    Some(bin) => match bin.binary.as_ref() {
+                        None => Box::new(Vec::<u8>::new()),
+                        Some(binary) => Box::new(binary.to_vec()),
+                    },
+                }
+            }
+        };
 
-    debug!(
-        "============================handle finish OK============================\nend time: {}",
-        utc_timestamp()
-    );
-    resp
+        let reader_stream = once(async move { Result::<Bytes, Infallible>::Ok(Bytes::from(*binary)) });
+        let stream_body = StreamBody::new(reader_stream.map_ok(Frame::data)).boxed();
+        let resp = response_builder.body(Either::Right(body::stream_body(stream_body))).unwrap();
+
+        debug!(
+            "============================handle finish OK============================\nend time: {}",
+            utc_timestamp()
+        );
+        resp
+    } else {
+        let resp_body = Res::<IfRes<T>> {
+            code: biz_res.biz_code(),
+            message: biz_res.message(),
+            result: Some(result),
+        };
+        let json = serde_json::to_string(&resp_body).unwrap();
+        let resp = response_builder.body(Either::Left(body::bytes(json.as_bytes().to_vec()))).unwrap();
+
+        debug!(
+            "============================handle finish OK============================\nend time: {}",
+            utc_timestamp()
+        );
+        resp
+    }
 }
 
 #[derive(PartialEq, Eq, Debug, Hash, Clone, Default)]
@@ -564,6 +602,7 @@ pub fn set_input_param<I: for<'de> Deserialize<'de> + ModelTrait + prost::Messag
     param_map: &ExtraParamMap,
     params: &Params,
     input_param: &mut I,
+    form_data: &Option<Vec<FormDataParam>>,
 ) -> HttpResult<()> {
     for (target_name, param_def) in param_map.params.clone().into_iter() {
         let name = &param_def.name;
@@ -637,6 +676,28 @@ pub fn set_input_param<I: for<'de> Deserialize<'de> + ModelTrait + prost::Messag
                     }
                 }
             }
+
+            ParamFrom::FormData => {
+                if param_def.required {
+                    match form_data {
+                        None => return Err(err_boxed_full(BODY_PARAM_NOT_EXIST, "form data not found")),
+                        Some(form_data) => {
+                            match form_data.iter().find(|e| match &e.field_name {
+                                None => false,
+                                Some(f_name) => f_name.eq(&param_def.name),
+                            }) {
+                                Some(_) => {}
+                                None => {
+                                    return Err(err_boxed_full_string(
+                                        BODY_PARAM_NOT_EXIST,
+                                        format!("form data body parameter {name} not found"),
+                                    ));
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -659,6 +720,7 @@ pub async fn params_to_model<
 
     let mut input_param;
     let mut input_params;
+    let mut form_data = None;
 
     if params.if_info.bulk_input {
         input_param = Default::default();
@@ -686,6 +748,31 @@ pub async fn params_to_model<
                             }
                         }
                         prost_inputs
+                    } else if value.starts_with("multipart/form-data") {
+                        let media_type = value.parse::<mime::Mime>()?;
+                        let (_, boundary) = media_type
+                            .params()
+                            .find(|(k, _)| k.as_str() == mime::BOUNDARY.as_str())
+                            .ok_or("boundary not found")?;
+
+                        let stream = once(async move { Result::<Bytes, Infallible>::Ok(Bytes::from(bytes)) });
+                        let mut multipart = multer::Multipart::new(stream, boundary.as_str());
+                        let mut form_data_params = Vec::<FormDataParam>::new();
+
+                        while let Some(mut field) = multipart.next_field().await? {
+                            while let Some(chunk) = field.chunk().await? {
+                                let name = field.name().map(|e| e.to_string());
+                                let file_name = field.file_name().map(|e| e.to_string());
+                                form_data_params.push(FormDataParam {
+                                    field_name: name,
+                                    file_name: file_name,
+                                    data: Some(Box::new(chunk.to_vec())),
+                                });
+                            }
+                        }
+
+                        form_data = Some(form_data_params);
+                        Default::default()
                     } else {
                         de_bytes_slice::<Vec<I>>(&bytes[..])?
                     }
@@ -704,6 +791,31 @@ pub async fn params_to_model<
                     if value == "application/grpc" || value == "application/grpc+proto" {
                         let any = prost_types::Any::decode(&bytes[..])?;
                         I::decode(&any.value[..])?
+                    } else if value.starts_with("multipart/form-data") {
+                        let media_type = value.parse::<mime::Mime>()?;
+                        let (_, boundary) = media_type
+                            .params()
+                            .find(|(k, _)| k.as_str() == mime::BOUNDARY.as_str())
+                            .ok_or("boundary not found")?;
+
+                        let stream = once(async move { Result::<Bytes, Infallible>::Ok(Bytes::from(bytes)) });
+                        let mut multipart = multer::Multipart::new(stream, boundary.as_str());
+                        let mut form_data_params = Vec::<FormDataParam>::new();
+
+                        while let Some(mut field) = multipart.next_field().await? {
+                            while let Some(chunk) = field.chunk().await? {
+                                let name = field.name().map(|e| e.to_string());
+                                let file_name = field.file_name().map(|e| e.to_string());
+                                form_data_params.push(FormDataParam {
+                                    field_name: name,
+                                    file_name: file_name,
+                                    data: Some(Box::new(chunk.to_vec())),
+                                });
+                            }
+                        }
+
+                        form_data = Some(form_data_params);
+                        Default::default()
                     } else {
                         de_bytes_slice::<I>(&bytes[..])?
                     }
@@ -739,6 +851,8 @@ pub async fn params_to_model<
             query_param: params.query_param.clone(),
             page_info: None,
             inner_context: Default::default(),
+            form_data: form_data,
+            response_header: HashMap::new(),
         });
     }
 
@@ -746,10 +860,10 @@ pub async fn params_to_model<
 
     if params.if_info.bulk_input {
         for input_param_in in input_params.iter_mut() {
-            set_input_param(param_map, &params, input_param_in)?;
+            set_input_param(param_map, &params, input_param_in, &form_data)?;
         }
     } else {
-        set_input_param(param_map, &params, &mut input_param)?;
+        set_input_param(param_map, &params, &mut input_param, &form_data)?;
     }
 
     debug!("input_param model: {:#?}", input_param);
@@ -770,6 +884,8 @@ pub async fn params_to_model<
         query_param: params.query_param.clone(),
         page_info: None,
         inner_context: Default::default(),
+        form_data: form_data,
+        response_header: HashMap::new(),
     })
 }
 
@@ -798,7 +914,7 @@ pub fn utc_timestamp() -> DateTime<Local> {
 
 pub async fn res<I: ModelTrait + Default + prost::Message, O: ModelTrait + Validator + prost::Message + std::default::Default, C: Clone>(
     context: ContextWrapper<I, O, C>,
-) -> HttpResult<IfRes<O>> {
+) -> HttpResult<(IfRes<O>, HashMap<String, String>)> {
     let uris = URIS.read().await;
     let uri = uris.get(&context.uri_name).unwrap();
 
@@ -815,7 +931,7 @@ pub async fn res<I: ModelTrait + Default + prost::Message, O: ModelTrait + Valid
         if_res.output = Some(context.output);
     }
 
-    Ok(if_res)
+    Ok((if_res, context.response_header))
 }
 
 pub async fn hyper_request(

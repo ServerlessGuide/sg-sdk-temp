@@ -1,7 +1,31 @@
 use bevy_reflect::{reflect_trait, Reflect};
+use dapr::appcallback::InvokeResponse;
+use downcast_rs::{impl_downcast, Downcast};
+use http_body_util::Either;
+use hyper::Response;
 use std::any::Any;
+use std::fmt::Debug;
 
-use crate::HttpResult;
+use crate::{model::Params, GrpcResult, HttpResult};
+
+pub trait DaprBody: Debug + Send + Downcast {
+    fn as_dapr_body(self) -> Box<dyn DaprBody>
+    where
+        Self: Sized,
+    {
+        Box::new(self)
+    }
+}
+
+impl_downcast!(DaprBody);
+
+pub trait HttpRequestDispatcherTrait {
+    fn do_http_dispatch(params: Params) -> impl std::future::Future<Output = HttpResult<Response<Either<crate::body::Body, crate::body::BodySt>>>> + Send;
+}
+
+pub trait GrpcRequestDispatcherTrait {
+    fn do_grpc_dispatch(params: Params) -> impl std::future::Future<Output = GrpcResult<tonic::Response<InvokeResponse>>> + Send;
+}
 
 pub trait EnumConvert {
     fn enum_convert(f_name: &str, f_value: &str) -> HttpResult<(bool, Option<i32>)>;
