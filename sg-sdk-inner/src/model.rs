@@ -424,17 +424,9 @@ pub struct DaprConfig {
 #[derive(PartialEq, Eq, Serialize, Deserialize, Debug, Clone, Default)]
 pub struct DaprComponentInfo {
     pub bb_type: DaprBuildBlockType,
-    pub bo_type: DaprOperationType,
-    pub name: String,
-    pub component_type: String,
-    pub namespace: Option<String>,
-    pub metadata: Option<HashMap<String, String>>,
-    pub topic: Option<String>,
-}
 
-#[derive(PartialEq, Eq, Serialize, Deserialize, Debug, Clone, Default)]
-pub struct DaprInvokeServiceInfo {
-    pub bb_type: DaprBuildBlockType,
+    #[serde(default)]
+    pub bo_type: DaprOperationType,
     pub name: String,
     pub component_type: String,
     pub namespace: Option<String>,
