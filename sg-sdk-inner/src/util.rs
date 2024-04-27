@@ -456,6 +456,7 @@ pub async fn set_skip_auth_uri(uri: URI) -> HttpResult<()> {
 pub async fn uri_match(req_path: &str, req_method: Method) -> HttpResult<URI> {
     let uri_regex_map = URI_REGEX_MAP.read().await;
     for (uri, regex) in uri_regex_map.iter() {
+        info!("registered uri: {:?}", uri);
         if regex.is_match(req_path) && uri.method() == req_method {
             return Ok(uri.to_owned());
         }

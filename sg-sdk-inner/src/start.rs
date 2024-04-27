@@ -7,6 +7,7 @@ use dapr::{
     },
     dapr::dapr::proto::runtime::v1::app_callback_server::{AppCallback, AppCallbackServer},
 };
+use futures_util::future::join;
 use http_body_util::Either;
 use hyper::{body::Incoming, server::conn::http1, service::service_fn, Request, Response};
 use hyper_util::rt::TokioIo;
@@ -77,8 +78,7 @@ pub async fn start_http_grpc<OneDispatcher: HttpRequestDispatcherTrait + GrpcReq
     http_port: u16,
     grpc_port: u16,
 ) -> HttpResult<()> {
-    start_http::<OneDispatcher>(http_port).await?;
-    start_grpc::<OneDispatcher>(grpc_port).await?;
+    let _ = join(start_http::<OneDispatcher>(http_port), start_grpc::<OneDispatcher>(grpc_port)).await;
     Ok(())
 }
 
