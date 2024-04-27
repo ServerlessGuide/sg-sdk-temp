@@ -405,19 +405,19 @@ pub struct ExtraParamMap {
 
 #[derive(PartialEq, Eq, Serialize, Deserialize, Debug, Clone, Default)]
 pub struct DaprConfig {
-    #[serde(with = "nullable_to_vec")]
+    #[serde(with = "nullable_to_vec", default)]
     pub binding: Vec<DaprComponentInfo>,
 
-    #[serde(with = "nullable_to_vec")]
+    #[serde(with = "nullable_to_vec", default)]
     pub state: Vec<DaprComponentInfo>,
 
-    #[serde(with = "nullable_to_vec")]
+    #[serde(with = "nullable_to_vec", default)]
     pub pubsub: Vec<DaprComponentInfo>,
 
-    #[serde(with = "nullable_to_vec")]
+    #[serde(with = "nullable_to_vec", default)]
     pub secret: Vec<DaprComponentInfo>,
 
-    #[serde(with = "nullable_to_vec")]
+    #[serde(with = "nullable_to_vec", default)]
     pub conf: Vec<DaprComponentInfo>,
 }
 
