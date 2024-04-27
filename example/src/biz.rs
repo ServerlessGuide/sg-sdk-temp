@@ -38,13 +38,7 @@ pub fn pre_check_permission(
 
     let mut dapr_comp = None;
 
-    let context = context
-        .dapr_invoke_binding_sql("query_rel_exist", "app-version")?
-        .dapr_invoke_binding_sql_operation(SqlOperation::Query)?
-        .get_current_dapr_component(|d| dapr_comp = d)?
-        .dapr_invoke_binding_sql_sqls(trans_sql_info(
-            vec![(
-                r#"
+    let sql = r#"
 select
     r.id as rel_id
 from
@@ -53,36 +47,36 @@ where
     l.id = r.role_id
     and r.user_id = ?
     and r.app_id = ?;
-"#
-                .to_string(),
-                vec![rbs::Value::I64(id.to_owned().parse()?), rbs::Value::I64(app_id.to_owned())],
-                false,
-                None,
-                None,
-            )],
-            SqlOperation::Query,
-            dapr_comp.as_ref().ok_or("dapr component not found")?,
-        )?)?;
+"#;
+
+    let context = context
+        .dapr_invoke_binding_sql("query_rel_exist", "app-version")?
+        .dapr_invoke_binding_sql_operation(SqlOperation::Query)?
+        .get_current_dapr_component(|d| dapr_comp = d)?
+        .dapr_invoke_binding_sql_sqls(
+            SqlsBuilder::new()
+                .dapr_component(dapr_comp.as_ref().ok_or("dapr component not found")?)
+                .operation(SqlOperation::Query)
+                .sql_builder(
+                    SqlBuilder::new()
+                        .sql(sql)
+                        .param_extend(rbs::Value::I64(id.to_owned().parse()?))
+                        .param_extend(rbs::Value::I64(app_id.to_owned())),
+                )
+                .build()?,
+        )?;
 
     Ok(context)
 }
 
 pub fn post_check_permission(
-    mut context: ContextWrapper<QueryAppVersions, AppVersion, UserWithIdSid>,
+    context: ContextWrapper<QueryAppVersions, AppVersion, UserWithIdSid>,
 ) -> HttpResult<ContextWrapper<QueryAppVersions, AppVersion, UserWithIdSid>> {
-    let execute_name = "query_rel_exist";
-    let (_, res, _) = find_dapr_execute(&mut context.exec, execute_name)?;
-
-    let response = res
-        .invoke_binding_sql
-        .clone()
-        .ok_or(format!("execute '{}' of invoke_binding_sql response not found", execute_name))?;
-
-    let first = response.responses.first().unwrap();
-    let res = de_sql_result_implicit::<RelId>(&first.data, &first.output_columns, RelId::enum_convert)?;
-    if res.len() != 1 {
-        return Err(err_boxed_full(AUTH_ERROR, "you don't have permission to access the app"));
-    }
+    let (context, _) = context
+        .decode_sql_one::<RelId>("query_rel_exist")
+        .map_err(|_| err_boxed_full(AUTH_ERROR, "you don't have permission to access the app"))?
+        .get_dapr_resp_one::<RelId>("query_rel_exist")
+        .map_err(|_| err_boxed_full(AUTH_ERROR, "you don't have permission to access the app"))?;
 
     Ok(context)
 }
@@ -108,23 +102,13 @@ pub fn pre_query_by_app_id(
 }
 
 pub fn post_query_by_app_id(
-    mut context: ContextWrapper<QueryAppVersions, AppVersion, UserWithIdSid>,
+    context: ContextWrapper<QueryAppVersions, AppVersion, UserWithIdSid>,
 ) -> HttpResult<ContextWrapper<QueryAppVersions, AppVersion, UserWithIdSid>> {
-    let execute_name = "query_by_app_id";
-    let (_, res, _) = find_dapr_execute(&mut context.exec, execute_name)?;
+    let (mut context, list) = context
+        .decode_sql_list::<AppVersion>("query_by_app_id")?
+        .get_dapr_resp_list::<AppVersion>("query_by_app_id")?;
 
-    let response = res
-        .invoke_binding_sql
-        .clone()
-        .ok_or(format!("execute '{}' of invoke_binding_sql response not found", execute_name))?;
-
-    if response.responses.is_empty() {
-        return Err(err_boxed(DATA_NOT_FOUND));
-    }
-
-    let first = response.responses.first().unwrap();
-    let res = de_sql_result_implicit::<AppVersion>(&first.data, &first.output_columns, AppVersion::enum_convert)?;
-    context.outputs = res;
+    context.outputs = list;
 
     Ok(context)
 }
@@ -165,13 +149,7 @@ pub fn pre_check_permission_for_insert(
 
     let mut dapr_comp = None;
 
-    let context = context
-        .dapr_invoke_binding_sql("query_rel_exist", "app-version")?
-        .get_current_dapr_component(|d| dapr_comp = d)?
-        .dapr_invoke_binding_sql_operation(SqlOperation::Query)?
-        .dapr_invoke_binding_sql_sqls(trans_sql_info(
-            vec![(
-                r#"
+    let sql = r#"
 select
     r.id as rel_id
 from
@@ -180,36 +158,36 @@ where
     l.id = r.role_id
     and r.user_id = ?
     and r.app_id = ?;
-"#
-                .to_string(),
-                vec![rbs::Value::I64(id.to_owned().parse()?), rbs::Value::I64(app_id)],
-                false,
-                None,
-                None,
-            )],
-            SqlOperation::Query,
-            dapr_comp.as_ref().ok_or("dapr component not found")?,
-        )?)?;
+"#;
+
+    let context = context
+        .dapr_invoke_binding_sql("query_rel_exist", "app-version")?
+        .get_current_dapr_component(|d| dapr_comp = d)?
+        .dapr_invoke_binding_sql_operation(SqlOperation::Query)?
+        .dapr_invoke_binding_sql_sqls(
+            SqlsBuilder::new()
+                .dapr_component(dapr_comp.as_ref().ok_or("dapr component not found")?)
+                .operation(SqlOperation::Query)
+                .sql_builder(
+                    SqlBuilder::new()
+                        .sql(sql)
+                        .param_extend(rbs::Value::I64(id.to_owned().parse()?))
+                        .param_extend(rbs::Value::I64(app_id)),
+                )
+                .build()?,
+        )?;
 
     Ok(context)
 }
 
 pub fn post_check_permission_for_insert(
-    mut context: ContextWrapper<AppVersion, EmptyOutPut, UserWithIdSid>,
+    context: ContextWrapper<AppVersion, EmptyOutPut, UserWithIdSid>,
 ) -> HttpResult<ContextWrapper<AppVersion, EmptyOutPut, UserWithIdSid>> {
-    let execute_name = "query_rel_exist";
-    let (_, res, _) = find_dapr_execute(&mut context.exec, execute_name)?;
-
-    let response = res
-        .invoke_binding_sql
-        .clone()
-        .ok_or(format!("execute '{}' of invoke_binding_sql response not found", execute_name))?;
-
-    let first = response.responses.first().unwrap();
-    let res = de_sql_result_implicit::<RelId>(&first.data, &first.output_columns, RelId::enum_convert)?;
-    if res.len() != 1 {
-        return Err(err_boxed_full(AUTH_ERROR, "you don't have permission to access the app"));
-    }
+    let (context, _) = context
+        .decode_sql_one::<RelId>("query_rel_exist")
+        .map_err(|_| err_boxed_full(AUTH_ERROR, "you don't have permission to access the app"))?
+        .get_dapr_resp_one::<RelId>("query_rel_exist")
+        .map_err(|_| err_boxed_full(AUTH_ERROR, "you don't have permission to access the app"))?;
 
     Ok(context)
 }
@@ -226,25 +204,12 @@ pub fn pre_get_snowflake_id(
     Ok(context)
 }
 
-pub fn pre_insert(mut context: ContextWrapper<AppVersion, EmptyOutPut, UserWithIdSid>) -> HttpResult<ContextWrapper<AppVersion, EmptyOutPut, UserWithIdSid>> {
-    let execute_name = "get_snowflake_id";
-    let (_, res, _) = find_dapr_execute(&mut context.exec, execute_name)?;
+pub fn pre_insert(context: ContextWrapper<AppVersion, EmptyOutPut, UserWithIdSid>) -> HttpResult<ContextWrapper<AppVersion, EmptyOutPut, UserWithIdSid>> {
+    let (context, bulk_ids) = context
+        .decode_sql_one::<BulkIdRes>("get_snowflake_id")?
+        .get_dapr_resp_one::<BulkIdRes>("get_snowflake_id")?;
 
-    let response = res
-        .invoke_service
-        .as_mut()
-        .ok_or(format!("execute '{}' of invoke_service response not found", execute_name))?;
-
-    let Some(data) = &response.data else {
-        return Err(err_boxed(DATA_NOT_FOUND));
-    };
-
-    let ids = de_any_json::<BulkIdRes>(data)?
-        .downcast_mut::<BulkIdRes>()
-        .ok_or("downcast error")?
-        .result
-        .clone();
-
+    let ids = bulk_ids.result;
     if ids.len() != 1 {
         return Err(err_boxed_full(DATA_ERROR, "get ids from id length not 1"));
     }
@@ -283,13 +248,7 @@ pub fn pre_check_permission_for_env_prepare(
 
     let mut dapr_comp = None;
 
-    let context = context
-        .dapr_invoke_binding_sql("query_rel_exist", "app-version")?
-        .get_current_dapr_component(|d| dapr_comp = d)?
-        .dapr_invoke_binding_sql_operation(SqlOperation::Query)?
-        .dapr_invoke_binding_sql_sqls(trans_sql_info(
-            vec![(
-                r#"
+    let sql = r#"
 select
     r.id as rel_id
 from
@@ -300,51 +259,45 @@ where
     and l.code != 'StandBy'
     and r.user_id = ?
     and v.id = ?;
-"#
-                .to_string(),
-                vec![rbs::Value::I64(id.parse()?), rbs::Value::I64(app_version_id)],
-                false,
-                None,
-                None,
-            )],
-            SqlOperation::Query,
-            dapr_comp.as_ref().ok_or("dapr component not found")?,
-        )?)?;
+"#;
+
+    let context = context
+        .dapr_invoke_binding_sql("query_rel_exist", "app-version")?
+        .get_current_dapr_component(|d| dapr_comp = d)?
+        .dapr_invoke_binding_sql_operation(SqlOperation::Query)?
+        .dapr_invoke_binding_sql_sqls(
+            SqlsBuilder::new()
+                .dapr_component(dapr_comp.as_ref().ok_or("dapr component not found")?)
+                .operation(SqlOperation::Query)
+                .sql_builder(
+                    SqlBuilder::new()
+                        .sql(sql)
+                        .param_extend(rbs::Value::I64(id.parse()?))
+                        .param_extend(rbs::Value::I64(app_version_id)),
+                )
+                .build()?,
+        )?;
 
     Ok(context)
 }
 
 pub fn post_check_permission_for_env_prepare(
-    mut context: ContextWrapper<AppVersion, EmptyOutPut, UserWithIdSid>,
+    context: ContextWrapper<AppVersion, EmptyOutPut, UserWithIdSid>,
 ) -> HttpResult<ContextWrapper<AppVersion, EmptyOutPut, UserWithIdSid>> {
-    let execute_name = "query_rel_exist";
-    let (_, res, _) = find_dapr_execute(&mut context.exec, execute_name)?;
-
-    let response = res
-        .invoke_binding_sql
-        .clone()
-        .ok_or(format!("execute '{}' of invoke_binding_sql response not found", execute_name))?;
-
-    let first = response.responses.first().unwrap();
-    let res = de_sql_result_implicit::<RelId>(&first.data, &first.output_columns, RelId::enum_convert)?;
-    if res.len() != 1 {
-        return Err(err_boxed_full(AUTH_ERROR, "you don't have permission to access the app"));
-    }
+    let (context, _) = context
+        .decode_sql_one::<RelId>("query_rel_exist")
+        .map_err(|_| err_boxed_full(AUTH_ERROR, "you don't have permission to access the app"))?
+        .get_dapr_resp_one::<RelId>("query_rel_exist")
+        .map_err(|_| err_boxed_full(AUTH_ERROR, "you don't have permission to access the app"))?;
 
     Ok(context)
 }
 
-pub fn pre_prepare_env(
-    mut context: ContextWrapper<AppVersion, EmptyOutPut, UserWithIdSid>,
-) -> HttpResult<ContextWrapper<AppVersion, EmptyOutPut, UserWithIdSid>> {
-    let execute_name = "query_by_app_version_id";
-    let (_, _, de_res) = find_dapr_execute(&mut context.exec, execute_name)?;
+pub fn pre_prepare_env(context: ContextWrapper<AppVersion, EmptyOutPut, UserWithIdSid>) -> HttpResult<ContextWrapper<AppVersion, EmptyOutPut, UserWithIdSid>> {
+    let (context, app_info) = context
+        .decode_sql_one::<AppCodeAndVersion>("query_by_app_version_id")?
+        .get_dapr_resp_one::<AppCodeAndVersion>("query_by_app_version_id")?;
 
-    let de_res = de_res.as_mut().ok_or(err_boxed(DATA_NOT_FOUND))?;
-    if de_res.is_empty() {
-        return Err(err_boxed(DATA_NOT_FOUND));
-    }
-    let app_info = de_res[0].downcast_mut::<AppCodeAndVersion>().ok_or("downcast error")?;
     let app_code = app_info.code.clone().ok_or("app code not found")?;
     let app_version = app_info.version.clone().ok_or("app version not found")?;
     let app_domain = app_info.domain.clone().ok_or("app domain not found")?;
@@ -382,13 +335,7 @@ pub fn pre_query_by_app_version_id(
 
     let mut dapr_comp = None;
 
-    let context = context
-        .dapr_invoke_binding_sql("query_by_app_version_id", "app-version")?
-        .get_current_dapr_component(|d| dapr_comp = d)?
-        .dapr_invoke_binding_sql_operation(SqlOperation::Query)?
-        .dapr_invoke_binding_sql_sqls(trans_sql_info(
-            vec![(
-                r#"
+    let sql = r#"
 select
     p.code,
     v.version,
@@ -398,40 +345,29 @@ from
 where
     p.id = v.app_id
     and v.id = ?;
-"#
-                .to_string(),
-                vec![rbs::Value::I64(id)],
-                false,
-                None,
-                None,
-            )],
-            SqlOperation::Query,
-            dapr_comp.as_ref().ok_or("dapr component not found")?,
-        )?)?;
+"#;
+
+    let context = context
+        .dapr_invoke_binding_sql("query_by_app_version_id", "app-version")?
+        .get_current_dapr_component(|d| dapr_comp = d)?
+        .dapr_invoke_binding_sql_operation(SqlOperation::Query)?
+        .dapr_invoke_binding_sql_sqls(
+            SqlsBuilder::new()
+                .dapr_component(dapr_comp.as_ref().ok_or("dapr component not found")?)
+                .operation(SqlOperation::Query)
+                .sql_builder(SqlBuilder::new().sql(sql).param_extend(rbs::Value::I64(id)))
+                .build()?,
+        )?;
 
     Ok(context)
 }
 
 pub fn post_query_by_app_version_id(
-    mut context: ContextWrapper<AppVersion, EmptyOutPut, UserWithIdSid>,
+    context: ContextWrapper<AppVersion, EmptyOutPut, UserWithIdSid>,
 ) -> HttpResult<ContextWrapper<AppVersion, EmptyOutPut, UserWithIdSid>> {
-    let execute_name = "query_by_app_version_id";
-    let (_, res, _) = find_dapr_execute(&mut context.exec, execute_name)?;
+    let (context, _) = context
+        .decode_sql_one::<AppCodeAndVersion>("query_by_app_version_id")?
+        .get_dapr_resp_one::<AppCodeAndVersion>("query_by_app_version_id")?;
 
-    let response = res
-        .invoke_binding_sql
-        .clone()
-        .ok_or(format!("execute '{}' of invoke_binding_sql response not found", execute_name))?;
-
-    if response.responses.is_empty() {
-        return Err(err_boxed(DATA_NOT_FOUND));
-    }
-
-    let first = response.responses.first().unwrap();
-    let res = de_sql_result_implicit_first::<AppCodeAndVersion>(&first.data, &first.output_columns, AppCodeAndVersion::enum_convert)?;
-
-    let mut dapr_res = Vec::<Box<dyn DaprBody>>::new();
-    dapr_res.push(Box::new(res));
-
-    Ok(set_dapr_res(context, dapr_res, execute_name)?)
+    Ok(context)
 }

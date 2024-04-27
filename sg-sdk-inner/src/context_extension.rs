@@ -524,6 +524,16 @@ impl<I: ModelTrait + prost::Message + Default, O: ModelTrait + prost::Message, C
     pub fn dapr_invoke_service(self, exec_name: &str, id: &str, http_method: MethodEnum) -> HttpResult<ContextWrapper<I, O, C>> {
         let mut dapr_req_ins: DaprRequest = Default::default();
 
+        dapr_req_ins._dapr_config = Some(DaprComponentInfo {
+            bb_type: DaprBuildBlockType::InvokeService,
+            bo_type: DaprOperationType::InvokeService,
+            name: String::new(),
+            component_type: String::new(),
+            namespace: None,
+            metadata: None,
+            topic: None,
+        });
+
         dapr_req_ins.invoke_service = Some(InvokeServiceRequest {
             id: id.to_string(),
             message: Some(InvokeRequest {
@@ -545,7 +555,10 @@ impl<I: ModelTrait + prost::Message + Default, O: ModelTrait + prost::Message, C
 impl DaprComponentInfo {
     pub fn make_get_state(&self) -> HttpResult<DaprRequest> {
         let mut s: DaprRequest = Default::default();
-        s._dapr_config = Some(self.clone());
+
+        let mut bb_type = self.clone();
+        bb_type.bo_type = DaprOperationType::GetState;
+        s._dapr_config = Some(bb_type);
 
         if DaprBuildBlockType::State != self.bb_type {
             return Err(err_boxed_full_string(DAPR_COMPONENT_NOT_EXIST, format!("{}.{}", "DaprConfig", "state")));
@@ -563,7 +576,10 @@ impl DaprComponentInfo {
 
     pub fn make_get_bulk_state(&self) -> HttpResult<DaprRequest> {
         let mut s: DaprRequest = Default::default();
-        s._dapr_config = Some(self.clone());
+
+        let mut bb_type = self.clone();
+        bb_type.bo_type = DaprOperationType::GetBulkState;
+        s._dapr_config = Some(bb_type);
 
         if DaprBuildBlockType::State != self.bb_type {
             return Err(err_boxed_full_string(DAPR_COMPONENT_NOT_EXIST, format!("{}.{}", "DaprConfig", "state")));
@@ -581,7 +597,10 @@ impl DaprComponentInfo {
 
     pub fn make_query_state(&self) -> HttpResult<DaprRequest> {
         let mut s: DaprRequest = Default::default();
-        s._dapr_config = Some(self.clone());
+
+        let mut bb_type = self.clone();
+        bb_type.bo_type = DaprOperationType::QueryState;
+        s._dapr_config = Some(bb_type);
 
         if DaprBuildBlockType::State != self.bb_type {
             return Err(err_boxed_full_string(DAPR_COMPONENT_NOT_EXIST, format!("{}.{}", "DaprConfig", "state")));
@@ -598,7 +617,10 @@ impl DaprComponentInfo {
 
     pub fn make_save_state(&self) -> HttpResult<DaprRequest> {
         let mut s: DaprRequest = Default::default();
-        s._dapr_config = Some(self.clone());
+
+        let mut bb_type = self.clone();
+        bb_type.bo_type = DaprOperationType::SaveState;
+        s._dapr_config = Some(bb_type);
 
         if DaprBuildBlockType::State != self.bb_type {
             return Err(err_boxed_full_string(DAPR_COMPONENT_NOT_EXIST, format!("{}.{}", "DaprConfig", "state")));
@@ -614,7 +636,10 @@ impl DaprComponentInfo {
 
     pub fn make_transaction_state(&self) -> HttpResult<DaprRequest> {
         let mut s: DaprRequest = Default::default();
-        s._dapr_config = Some(self.clone());
+
+        let mut bb_type = self.clone();
+        bb_type.bo_type = DaprOperationType::TransactionState;
+        s._dapr_config = Some(bb_type);
 
         if DaprBuildBlockType::State != self.bb_type {
             return Err(err_boxed_full_string(DAPR_COMPONENT_NOT_EXIST, format!("{}.{}", "DaprConfig", "state")));
@@ -631,7 +656,10 @@ impl DaprComponentInfo {
 
     pub fn make_delete_state(&self) -> HttpResult<DaprRequest> {
         let mut s: DaprRequest = Default::default();
-        s._dapr_config = Some(self.clone());
+
+        let mut bb_type = self.clone();
+        bb_type.bo_type = DaprOperationType::DeleteState;
+        s._dapr_config = Some(bb_type);
 
         if DaprBuildBlockType::State != self.bb_type {
             return Err(err_boxed_full_string(DAPR_COMPONENT_NOT_EXIST, format!("{}.{}", "DaprConfig", "state")));
@@ -650,7 +678,10 @@ impl DaprComponentInfo {
 
     pub fn make_delete_bulk_state(&self) -> HttpResult<DaprRequest> {
         let mut s: DaprRequest = Default::default();
-        s._dapr_config = Some(self.clone());
+
+        let mut bb_type = self.clone();
+        bb_type.bo_type = DaprOperationType::DeleteBulkState;
+        s._dapr_config = Some(bb_type);
 
         if DaprBuildBlockType::State != self.bb_type {
             return Err(err_boxed_full_string(DAPR_COMPONENT_NOT_EXIST, format!("{}.{}", "DaprConfig", "state")));
@@ -666,7 +697,10 @@ impl DaprComponentInfo {
 
     pub fn make_invoke_binding(&self) -> HttpResult<DaprRequest> {
         let mut s: DaprRequest = Default::default();
-        s._dapr_config = Some(self.clone());
+
+        let mut bb_type = self.clone();
+        bb_type.bo_type = DaprOperationType::InvokeBinding;
+        s._dapr_config = Some(bb_type);
 
         if DaprBuildBlockType::Binding != self.bb_type {
             return Err(err_boxed_full_string(DAPR_COMPONENT_NOT_EXIST, format!("{}.{}", "DaprConfig", "binding")));
@@ -684,7 +718,10 @@ impl DaprComponentInfo {
 
     pub fn make_invoke_binding_sql(&self) -> HttpResult<DaprRequest> {
         let mut s: DaprRequest = Default::default();
-        s._dapr_config = Some(self.clone());
+
+        let mut bb_type = self.clone();
+        bb_type.bo_type = DaprOperationType::InvokeBindingSql;
+        s._dapr_config = Some(bb_type);
 
         if DaprBuildBlockType::Binding != self.bb_type {
             return Err(err_boxed_full_string(DAPR_COMPONENT_NOT_EXIST, format!("{}.{}", "DaprConfig", "binding")));
@@ -704,7 +741,10 @@ impl DaprComponentInfo {
 
     pub fn make_publish_event(&self) -> HttpResult<DaprRequest> {
         let mut s: DaprRequest = Default::default();
-        s._dapr_config = Some(self.clone());
+
+        let mut bb_type = self.clone();
+        bb_type.bo_type = DaprOperationType::PublishEvent;
+        s._dapr_config = Some(bb_type);
 
         if DaprBuildBlockType::Pubsub != self.bb_type {
             return Err(err_boxed_full_string(DAPR_COMPONENT_NOT_EXIST, format!("{}.{}", "DaprConfig", "pubsub")));
@@ -726,7 +766,10 @@ impl DaprComponentInfo {
 
     pub fn make_publish_bulk_event(&self) -> HttpResult<DaprRequest> {
         let mut s: DaprRequest = Default::default();
-        s._dapr_config = Some(self.clone());
+
+        let mut bb_type = self.clone();
+        bb_type.bo_type = DaprOperationType::PublishBulkEvent;
+        s._dapr_config = Some(bb_type);
 
         if DaprBuildBlockType::Pubsub != self.bb_type {
             return Err(err_boxed_full_string(DAPR_COMPONENT_NOT_EXIST, format!("{}.{}", "DaprConfig", "pubsub")));
@@ -747,7 +790,10 @@ impl DaprComponentInfo {
 
     pub fn make_get_secret(&self) -> HttpResult<DaprRequest> {
         let mut s: DaprRequest = Default::default();
-        s._dapr_config = Some(self.clone());
+
+        let mut bb_type = self.clone();
+        bb_type.bo_type = DaprOperationType::GetSecret;
+        s._dapr_config = Some(bb_type);
 
         if DaprBuildBlockType::Secret != self.bb_type {
             return Err(err_boxed_full_string(DAPR_COMPONENT_NOT_EXIST, format!("{}.{}", "DaprConfig", "secret")));
@@ -764,7 +810,10 @@ impl DaprComponentInfo {
 
     pub fn make_get_bulk_secret(&self) -> HttpResult<DaprRequest> {
         let mut s: DaprRequest = Default::default();
-        s._dapr_config = Some(self.clone());
+
+        let mut bb_type = self.clone();
+        bb_type.bo_type = DaprOperationType::GetBulkSecret;
+        s._dapr_config = Some(bb_type);
 
         if DaprBuildBlockType::Secret != self.bb_type {
             return Err(err_boxed_full_string(DAPR_COMPONENT_NOT_EXIST, format!("{}.{}", "DaprConfig", "secret")));
@@ -780,7 +829,10 @@ impl DaprComponentInfo {
 
     pub fn make_get_configuration(&self) -> HttpResult<DaprRequest> {
         let mut s: DaprRequest = Default::default();
-        s._dapr_config = Some(self.clone());
+
+        let mut bb_type = self.clone();
+        bb_type.bo_type = DaprOperationType::GetConfiguration;
+        s._dapr_config = Some(bb_type);
 
         if DaprBuildBlockType::Conf != self.bb_type {
             return Err(err_boxed_full_string(DAPR_COMPONENT_NOT_EXIST, format!("{}.{}", "DaprConfig", "conf")));

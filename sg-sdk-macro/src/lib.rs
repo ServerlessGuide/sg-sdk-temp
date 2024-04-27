@@ -679,8 +679,8 @@ pub fn enum_convert_for_sql(input: proc_macro::TokenStream) -> proc_macro::Token
     };
 
     let gen = quote! {
-        impl #struct_name {
-            pub fn enum_convert(f_name: &str, f_value: &str) -> HttpResult<(bool, Option<i32>)> {
+        impl EnumConvert for #struct_name {
+            fn enum_convert(f_name: &str, f_value: &str) -> HttpResult<(bool, Option<i32>)> {
                 let enum_flds = [#enum_field_names_tokens].to_vec();
                 if enum_flds.contains(&f_name) {
                     match f_name {

@@ -881,16 +881,14 @@ pub async fn hyper_request(
     Ok(res)
 }
 
-pub fn de_any_json<T: for<'de> Deserialize<'de> + DaprBody + ModelTrait + Validate>(data: &prost_types::Any) -> HttpResult<Box<dyn DaprBody>> {
+pub fn de_any_json<T: for<'de> Deserialize<'de> + DaprBody + ModelTrait>(data: &prost_types::Any) -> HttpResult<Box<dyn DaprBody>> {
     let t = serde_json::from_slice::<T>(&data.value[..])?;
-    Ok(Box::new(validate_naked(t)?))
+    Ok(Box::new(t))
 }
 
-pub fn de_any_prost<T: for<'de> Deserialize<'de> + prost::Message + Default + DaprBody + ModelTrait + Validate>(
-    data: &prost_types::Any,
-) -> HttpResult<Box<dyn DaprBody>> {
+pub fn de_any_prost<T: for<'de> Deserialize<'de> + prost::Message + Default + DaprBody + ModelTrait>(data: &prost_types::Any) -> HttpResult<Box<dyn DaprBody>> {
     let t = T::decode(&data.value[..])?;
-    Ok(Box::new(validate_naked(t)?))
+    Ok(Box::new(t))
 }
 
 pub fn de_sql_result<T: Default + ModelTrait + Debug + DaprBody>(
@@ -1142,6 +1140,8 @@ pub fn find_dapr_component_with_type(build_block_type: DaprBuildBlockType, compo
         DaprBuildBlockType::Pubsub => Ok(find_dapr_state(component_name)?),
         DaprBuildBlockType::Secret => Ok(find_dapr_conf(component_name)?),
         DaprBuildBlockType::Conf => Ok(find_dapr_secret(component_name)?),
+        DaprBuildBlockType::InvokeService => Err(err_boxed_full(DAPR_DATA_ILLEGAL, "invoke service have not dapr component")),
+        DaprBuildBlockType::None => Err(err_boxed_full(DAPR_DATA_ILLEGAL, "dapr component can not be None, this type is used in sdk")),
     }
 }
 
@@ -1598,10 +1598,7 @@ pub fn trans_sql_info(
                 }
             }
         }
-        DaprBuildBlockType::State => todo!(),
-        DaprBuildBlockType::Pubsub => todo!(),
-        DaprBuildBlockType::Secret => todo!(),
-        DaprBuildBlockType::Conf => todo!(),
+        _ => return Err(err_boxed_full(DAPR_DATA_ILLEGAL, "only dapr binding component can call sql operation")),
     }
 
     Ok(res)

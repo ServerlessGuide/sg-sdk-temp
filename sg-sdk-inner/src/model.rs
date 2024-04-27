@@ -423,6 +423,7 @@ pub struct DaprConfig {
 #[derive(PartialEq, Eq, Serialize, Deserialize, Debug, Clone, Default)]
 pub struct DaprComponentInfo {
     pub bb_type: DaprBuildBlockType,
+    pub bo_type: DaprOperationType,
     pub name: String,
     pub component_type: String,
     pub namespace: Option<String>,
@@ -443,11 +444,34 @@ pub struct DaprInvokeServiceInfo {
 #[derive(PartialEq, Eq, Serialize, Deserialize, Debug, Clone, Default)]
 pub enum DaprBuildBlockType {
     #[default]
+    None,
     Binding,
     State,
     Pubsub,
     Secret,
     Conf,
+    InvokeService,
+}
+
+#[derive(PartialEq, Eq, Serialize, Deserialize, Debug, Clone, Default)]
+pub enum DaprOperationType {
+    #[default]
+    None,
+    GetState,
+    GetBulkState,
+    QueryState,
+    SaveState,
+    TransactionState,
+    DeleteState,
+    DeleteBulkState,
+    InvokeBinding,
+    InvokeBindingSql,
+    PublishEvent,
+    PublishBulkEvent,
+    GetSecret,
+    GetBulkSecret,
+    GetConfiguration,
+    InvokeService,
 }
 
 #[derive(Debug, Default)]
@@ -882,6 +906,21 @@ pub struct InvokeBindingSqlRequest {
     pub operation: SqlOperation,
     pub sqls: Vec<SqlWithParams>,
     pub is_select_page: Option<bool>,
+}
+
+pub struct SqlsBuilder<'a> {
+    pub sql_builders: Vec<SqlBuilder>,
+    pub operation: SqlOperation,
+    pub dapr_component: Option<&'a DaprComponentInfo>,
+}
+
+pub struct SqlBuilder {
+    pub sql: Option<String>,
+    pub params: Vec<rbs::Value>,
+    pub output_columns: Vec<String>,
+    pub page: bool,
+    pub offset: Option<u64>,
+    pub page_size: Option<u64>,
 }
 
 #[derive(PartialEq, Eq, Serialize, Deserialize, Clone, Debug, Default)]

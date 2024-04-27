@@ -1,6 +1,12 @@
 use bevy_reflect::{reflect_trait, Reflect};
 use std::any::Any;
 
+use crate::HttpResult;
+
+pub trait EnumConvert {
+    fn enum_convert(f_name: &str, f_value: &str) -> HttpResult<(bool, Option<i32>)>;
+}
+
 pub trait ModelTrait: Any + Send + Sync + Sized + Reflect + Clone {
     fn clear_model(&self) -> Self
     where
