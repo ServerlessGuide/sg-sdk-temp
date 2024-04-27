@@ -88,7 +88,7 @@ async fn main() -> HttpResult<()> {
     ForConfig::insert_uri().await?;
     ForConfig::insert_biz_result().await?;
     ForConfig::insert_income_param().await?;
-    ForConfig::set_skip_auth_uri().await?;
+    // ForConfig::set_skip_auth_uri().await?;
     ForConfig::set_internal_auth_tag().await?;
 
     start_http_grpc::<ForConfig>(8080, 8088).await
@@ -96,7 +96,7 @@ async fn main() -> HttpResult<()> {
 
 internal_auth_tag!(ForConfig, "Serverless-Guide");
 
-skip_auth_uri!(ForConfig, (INSERT, QUERY_BY_APP_ID));
+// skip_auth_uri!(ForConfig, (INSERT, QUERY_BY_APP_ID));
 
 uri! {
     ForConfig,

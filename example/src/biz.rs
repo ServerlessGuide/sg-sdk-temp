@@ -50,7 +50,7 @@ where
 "#;
 
     let context = context
-        .dapr_invoke_binding_sql("query_rel_exist", "app-version")?
+        .dapr_invoke_binding_sql("query_rel_exist", "sg-base-role")?
         .dapr_invoke_binding_sql_operation(SqlOperation::Query)?
         .get_current_dapr_component(|d| dapr_comp = d)?
         .dapr_invoke_binding_sql_sqls(
@@ -89,7 +89,7 @@ pub fn pre_query_by_app_id(
     let mut dapr_comp = None;
 
     let context = context
-        .dapr_invoke_binding_sql("query_by_app_id", "app-version")?
+        .dapr_invoke_binding_sql("query_by_app_id", "sg-base-role")?
         .get_current_dapr_component(|d| dapr_comp = d)?
         .dapr_invoke_binding_sql_operation(SqlOperation::Query)?
         .dapr_invoke_binding_sql_sqls(trans_sql_info(
@@ -161,7 +161,7 @@ where
 "#;
 
     let context = context
-        .dapr_invoke_binding_sql("query_rel_exist", "app-version")?
+        .dapr_invoke_binding_sql("query_rel_exist", "sg-base-role")?
         .get_current_dapr_component(|d| dapr_comp = d)?
         .dapr_invoke_binding_sql_operation(SqlOperation::Query)?
         .dapr_invoke_binding_sql_sqls(
@@ -224,7 +224,7 @@ pub fn pre_insert(context: ContextWrapper<AppVersion, EmptyOutPut, UserWithIdSid
     let mut dapr_comp = None;
 
     let context = context
-        .dapr_invoke_binding_sql("insert", "app-version")?
+        .dapr_invoke_binding_sql("insert", "sg-base-role")?
         .get_current_dapr_component(|d| dapr_comp = d)?
         .dapr_invoke_binding_sql_operation(SqlOperation::Exec)?
         .dapr_invoke_binding_sql_sqls(trans_sql_info(
@@ -262,7 +262,7 @@ where
 "#;
 
     let context = context
-        .dapr_invoke_binding_sql("query_rel_exist", "app-version")?
+        .dapr_invoke_binding_sql("query_rel_exist", "sg-base-role")?
         .get_current_dapr_component(|d| dapr_comp = d)?
         .dapr_invoke_binding_sql_operation(SqlOperation::Query)?
         .dapr_invoke_binding_sql_sqls(
@@ -316,7 +316,7 @@ pub fn pre_prepare_env(context: ContextWrapper<AppVersion, EmptyOutPut, UserWith
     target.domains = vec![app_domain];
 
     let context = context
-        .dapr_invoke_binding("prepare_env", "app-version-map-builder-svc")?
+        .dapr_invoke_binding("prepare_env", "sg-base-role-map-builder-svc")?
         .dapr_invoke_binding_operation("post")?
         .dapr_invoke_binding_metadata(metadata)?
         .dapr_invoke_binding_data(serde_json::to_vec(&target)?)?;
@@ -348,7 +348,7 @@ where
 "#;
 
     let context = context
-        .dapr_invoke_binding_sql("query_by_app_version_id", "app-version")?
+        .dapr_invoke_binding_sql("query_by_app_version_id", "sg-base-role")?
         .get_current_dapr_component(|d| dapr_comp = d)?
         .dapr_invoke_binding_sql_operation(SqlOperation::Query)?
         .dapr_invoke_binding_sql_sqls(
