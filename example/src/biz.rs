@@ -31,7 +31,7 @@ pub fn prepare_inner_context_for_query_by_app_id(
 }
 
 pub fn pre_check_permission(
-    mut context: ContextWrapper<QueryAppVersions, AppVersion, UserWithIdSid>,
+    context: ContextWrapper<QueryAppVersions, AppVersion, UserWithIdSid>,
 ) -> HttpResult<ContextWrapper<QueryAppVersions, AppVersion, UserWithIdSid>> {
     let id = context.inner_context.id.clone().ok_or("user id not found")?;
     let app_id = context.input.app_id.ok_or("app id not found")?;
@@ -40,9 +40,9 @@ pub fn pre_check_permission(
 
     let context = context
         .dapr_invoke_binding_sql("query_rel_exist", "app-version")?
-        .set_binding_sql_operation(SqlOperation::Query)?
+        .dapr_invoke_binding_sql_operation(SqlOperation::Query)?
         .get_current_dapr_component(|d| dapr_comp = d)?
-        .set_binding_sql_sqls(trans_sql_info(
+        .dapr_invoke_binding_sql_sqls(trans_sql_info(
             vec![(
                 r#"
 select
@@ -88,7 +88,7 @@ pub fn post_check_permission(
 }
 
 pub fn pre_query_by_app_id(
-    mut context: ContextWrapper<QueryAppVersions, AppVersion, UserWithIdSid>,
+    context: ContextWrapper<QueryAppVersions, AppVersion, UserWithIdSid>,
 ) -> HttpResult<ContextWrapper<QueryAppVersions, AppVersion, UserWithIdSid>> {
     let app_id = context.input.app_id.ok_or("app_id not exist")?;
 
@@ -97,8 +97,8 @@ pub fn pre_query_by_app_id(
     let context = context
         .dapr_invoke_binding_sql("query_by_app_id", "app-version")?
         .get_current_dapr_component(|d| dapr_comp = d)?
-        .set_binding_sql_operation(SqlOperation::Query)?
-        .set_binding_sql_sqls(trans_sql_info(
+        .dapr_invoke_binding_sql_operation(SqlOperation::Query)?
+        .dapr_invoke_binding_sql_sqls(trans_sql_info(
             vec![AppVersion::select_by_column("app_id", app_id)?],
             SqlOperation::Query,
             dapr_comp.as_ref().ok_or("dapr component not found")?,
@@ -158,7 +158,7 @@ pub fn prepare_inner_context_for_insert(
 }
 
 pub fn pre_check_permission_for_insert(
-    mut context: ContextWrapper<AppVersion, EmptyOutPut, UserWithIdSid>,
+    context: ContextWrapper<AppVersion, EmptyOutPut, UserWithIdSid>,
 ) -> HttpResult<ContextWrapper<AppVersion, EmptyOutPut, UserWithIdSid>> {
     let id = context.inner_context.id.clone().ok_or("user id not found")?;
     let app_id = context.input.app_id.clone().ok_or("app id not found")?;
@@ -168,8 +168,8 @@ pub fn pre_check_permission_for_insert(
     let context = context
         .dapr_invoke_binding_sql("query_rel_exist", "app-version")?
         .get_current_dapr_component(|d| dapr_comp = d)?
-        .set_binding_sql_operation(SqlOperation::Query)?
-        .set_binding_sql_sqls(trans_sql_info(
+        .dapr_invoke_binding_sql_operation(SqlOperation::Query)?
+        .dapr_invoke_binding_sql_sqls(trans_sql_info(
             vec![(
                 r#"
 select
@@ -215,28 +215,15 @@ pub fn post_check_permission_for_insert(
 }
 
 pub fn pre_get_snowflake_id(
-    mut context: ContextWrapper<AppVersion, EmptyOutPut, UserWithIdSid>,
+    context: ContextWrapper<AppVersion, EmptyOutPut, UserWithIdSid>,
 ) -> HttpResult<ContextWrapper<AppVersion, EmptyOutPut, UserWithIdSid>> {
-    let execute_name = "get_snowflake_id";
+    let context = context
+        .dapr_invoke_service("get_snowflake_id", "id-serverlessguide-dev", MethodEnum::GET)?
+        .dapr_invoke_service_uri("id/bulk")?
+        .dapr_invoke_service_content_type("application/json")?
+        .dapr_invoke_service_query_string("num=1")?;
 
-    let dapr_req_ins = DaprRequest::make_invoke_service(
-        "id-serverlessguide-dev".to_string(),
-        "id/bulk".to_string(),
-        "application/json".to_string(),
-        MethodEnum::GET,
-        format!("num={}", 1),
-    )?;
-
-    // let context = context.dapr_invoke_service(
-    //     "get_snowflake_id",
-    //     "id-serverlessguide-dev",
-    //     "id/bulk",
-    //     "application/json",
-    //     MethodEnum::GET,
-    //     "num=1",
-    // )?;
-
-    Ok(set_dapr_req(context, dapr_req_ins, execute_name)?)
+    Ok(context)
 }
 
 pub fn pre_insert(mut context: ContextWrapper<AppVersion, EmptyOutPut, UserWithIdSid>) -> HttpResult<ContextWrapper<AppVersion, EmptyOutPut, UserWithIdSid>> {
@@ -274,8 +261,8 @@ pub fn pre_insert(mut context: ContextWrapper<AppVersion, EmptyOutPut, UserWithI
     let context = context
         .dapr_invoke_binding_sql("insert", "app-version")?
         .get_current_dapr_component(|d| dapr_comp = d)?
-        .set_binding_sql_operation(SqlOperation::Exec)?
-        .set_binding_sql_sqls(trans_sql_info(
+        .dapr_invoke_binding_sql_operation(SqlOperation::Exec)?
+        .dapr_invoke_binding_sql_sqls(trans_sql_info(
             AppVersion::insert(&data)?,
             SqlOperation::Exec,
             dapr_comp.as_ref().ok_or("dapr component not found")?,
@@ -289,7 +276,7 @@ pub fn post_insert(mut context: ContextWrapper<AppVersion, EmptyOutPut, UserWith
 }
 
 pub fn pre_check_permission_for_env_prepare(
-    mut context: ContextWrapper<AppVersion, EmptyOutPut, UserWithIdSid>,
+    context: ContextWrapper<AppVersion, EmptyOutPut, UserWithIdSid>,
 ) -> HttpResult<ContextWrapper<AppVersion, EmptyOutPut, UserWithIdSid>> {
     let id = &context.inner_context.id.clone().ok_or("user id not found")?;
     let app_version_id = &context.input.id.ok_or("app version id not found")?;
@@ -299,8 +286,8 @@ pub fn pre_check_permission_for_env_prepare(
     let context = context
         .dapr_invoke_binding_sql("query_rel_exist", "app-version")?
         .get_current_dapr_component(|d| dapr_comp = d)?
-        .set_binding_sql_operation(SqlOperation::Query)?
-        .set_binding_sql_sqls(trans_sql_info(
+        .dapr_invoke_binding_sql_operation(SqlOperation::Query)?
+        .dapr_invoke_binding_sql_sqls(trans_sql_info(
             vec![(
                 r#"
 select
@@ -377,21 +364,19 @@ pub fn pre_prepare_env(
 
     let context = context
         .dapr_invoke_binding("prepare_env", "app-version-map-builder-svc")?
-        .set_binding_operation("post")?
-        .set_binding_metadata(metadata)?
-        .set_binding_data(serde_json::to_vec(&target)?)?;
+        .dapr_invoke_binding_operation("post")?
+        .dapr_invoke_binding_metadata(metadata)?
+        .dapr_invoke_binding_data(serde_json::to_vec(&target)?)?;
 
     Ok(context)
 }
 
-pub fn post_prepare_env(
-    mut context: ContextWrapper<AppVersion, EmptyOutPut, UserWithIdSid>,
-) -> HttpResult<ContextWrapper<AppVersion, EmptyOutPut, UserWithIdSid>> {
+pub fn post_prepare_env(context: ContextWrapper<AppVersion, EmptyOutPut, UserWithIdSid>) -> HttpResult<ContextWrapper<AppVersion, EmptyOutPut, UserWithIdSid>> {
     Ok(context)
 }
 
 pub fn pre_query_by_app_version_id(
-    mut context: ContextWrapper<AppVersion, EmptyOutPut, UserWithIdSid>,
+    context: ContextWrapper<AppVersion, EmptyOutPut, UserWithIdSid>,
 ) -> HttpResult<ContextWrapper<AppVersion, EmptyOutPut, UserWithIdSid>> {
     let id = context.input.id.ok_or("id not found")?;
 
@@ -400,8 +385,8 @@ pub fn pre_query_by_app_version_id(
     let context = context
         .dapr_invoke_binding_sql("query_by_app_version_id", "app-version")?
         .get_current_dapr_component(|d| dapr_comp = d)?
-        .set_binding_sql_operation(SqlOperation::Query)?
-        .set_binding_sql_sqls(trans_sql_info(
+        .dapr_invoke_binding_sql_operation(SqlOperation::Query)?
+        .dapr_invoke_binding_sql_sqls(trans_sql_info(
             vec![(
                 r#"
 select
