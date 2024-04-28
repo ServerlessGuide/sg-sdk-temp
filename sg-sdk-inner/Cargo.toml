@@ -22,15 +22,15 @@ lazy_static = { version = "1.4" }
 bevy_reflect = { version = "0.12" }
 async-trait = { version = "0.1" }
 pipe-trait = { version = "0.4" }
-dapr = { git = "https://github.com/TaurusM/dapr-rust-sdk.git", branch = "main", rev = "7c522a5d4b9c5935f57c4379a9c78b1d583cc143" }
+dapr = { git = "https://github.com/TaurusM/dapr-rust-sdk.git", rev = "7c522a5d4b9c5935f57c4379a9c78b1d583cc143" }
 downcast-rs = { version = "1.2" }
-prost-types = { git = "https://github.com/TaurusM/prost.git", branch = "main", package = "prost-types", rev = "2e1602874493e9ed1ffaaf2e450be52c0f11dc32" }
-prost = { git = "https://github.com/TaurusM/prost.git", branch = "main", rev = "2e1602874493e9ed1ffaaf2e450be52c0f11dc32" }
-tonic = { git = "https://github.com/TaurusM/tonic.git", branch = "main", rev = "8357fd0da1fd244304f02a6268df0640fa683f40" }
+prost-types = { git = "https://github.com/TaurusM/prost.git", package = "prost-types", rev = "2e1602874493e9ed1ffaaf2e450be52c0f11dc32" }
+prost = { git = "https://github.com/TaurusM/prost.git", rev = "2e1602874493e9ed1ffaaf2e450be52c0f11dc32" }
+tonic = { git = "https://github.com/TaurusM/tonic.git", rev = "8357fd0da1fd244304f02a6268df0640fa683f40" }
 futures-util = { version = "0.3", features = ["sink", "std"] }
-rbs = { git = "https://github.com/TaurusM/rbatis.git", branch = "main", package = "rbs", rev = "5428a0238fce87cd9b568ae569f7c826338fe844" }
-rbatis = { git = "https://github.com/TaurusM/rbatis.git", branch = "main", rev = "5428a0238fce87cd9b568ae569f7c826338fe844" }
-rbatis-macro-driver = { git = "https://github.com/TaurusM/rbatis.git", branch = "main", package = "rbatis-macro-driver", rev = "5428a0238fce87cd9b568ae569f7c826338fe844" }
+rbs = { git = "https://github.com/TaurusM/rbatis.git", package = "rbs", rev = "5428a0238fce87cd9b568ae569f7c826338fe844" }
+rbatis = { git = "https://github.com/TaurusM/rbatis.git", rev = "5428a0238fce87cd9b568ae569f7c826338fe844" }
+rbatis-macro-driver = { git = "https://github.com/TaurusM/rbatis.git", package = "rbatis-macro-driver", rev = "5428a0238fce87cd9b568ae569f7c826338fe844" }
 sqlparser = { version = "0.40" }
 base64 = { version = "0.21" }
 hex = { version = "0.4" }
@@ -44,7 +44,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 mime = { version = "0.3.17" }
 multer = { version = "3.0.0" }
 tokio-util = { version = "0.7" }
-sg-sdk-macro = { path = "../sg-sdk-macro", version = "*"}
+sg-sdk-macro = { path = "../sg-sdk-macro", version = "*" }
 
 
 [profile.release]
