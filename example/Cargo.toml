@@ -29,7 +29,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tonic = { git = "https://github.com/TaurusM/tonic.git", branch = "main" }
 dapr = { git = "https://github.com/TaurusM/dapr-rust-sdk.git", branch = "main" }
 sg-sdk-inner = { path = "../sg-sdk-inner" }
-sg-sdk-macro = { path = "../sg-sdk-macro" }
+sg-sdk-macro = { version = "0.0.1" }
 
 base64 = { version = "0.21" }
 
