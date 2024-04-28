@@ -22,15 +22,15 @@ lazy_static = { version = "1.4" }
 bevy_reflect = { version = "0.12" }
 async-trait = { version = "0.1" }
 pipe-trait = { version = "0.4" }
-dapr = { git = "https://github.com/TaurusM/dapr-rust-sdk.git", rev = "7f661c4e7c17ceffcad872fcbfffaf998a0b5400" }
+dapr = { git = "https://github.com/TaurusM/dapr-rust-sdk.git", rev = "7f661c4e7c17ceffcad872fcbfffaf998a0b5400", version = "*" }
 downcast-rs = { version = "1.2" }
-prost-types = { git = "https://github.com/TaurusM/prost.git", package = "prost-types", rev = "2e1602874493e9ed1ffaaf2e450be52c0f11dc32" }
-prost = { git = "https://github.com/TaurusM/prost.git", rev = "2e1602874493e9ed1ffaaf2e450be52c0f11dc32" }
-tonic = { git = "https://github.com/TaurusM/tonic.git", rev = "8357fd0da1fd244304f02a6268df0640fa683f40" }
+prost-types = { git = "https://github.com/TaurusM/prost.git", package = "prost-types", rev = "2e1602874493e9ed1ffaaf2e450be52c0f11dc32", version = "*" }
+prost = { git = "https://github.com/TaurusM/prost.git", rev = "2e1602874493e9ed1ffaaf2e450be52c0f11dc32", version = "*" }
+tonic = { git = "https://github.com/TaurusM/tonic.git", rev = "8357fd0da1fd244304f02a6268df0640fa683f40", version = "*" }
 futures-util = { version = "0.3", features = ["sink", "std"] }
-rbs = { git = "https://github.com/TaurusM/rbatis.git", package = "rbs", rev = "5428a0238fce87cd9b568ae569f7c826338fe844" }
-rbatis = { git = "https://github.com/TaurusM/rbatis.git", rev = "5428a0238fce87cd9b568ae569f7c826338fe844" }
-rbatis-macro-driver = { git = "https://github.com/TaurusM/rbatis.git", package = "rbatis-macro-driver", rev = "5428a0238fce87cd9b568ae569f7c826338fe844" }
+rbs = { git = "https://github.com/TaurusM/rbatis.git", package = "rbs", rev = "5428a0238fce87cd9b568ae569f7c826338fe844", version = "*" }
+rbatis = { git = "https://github.com/TaurusM/rbatis.git", rev = "5428a0238fce87cd9b568ae569f7c826338fe844", version = "*" }
+rbatis-macro-driver = { git = "https://github.com/TaurusM/rbatis.git", package = "rbatis-macro-driver", rev = "5428a0238fce87cd9b568ae569f7c826338fe844", version = "*" }
 sqlparser = { version = "0.40" }
 base64 = { version = "0.21" }
 hex = { version = "0.4" }
