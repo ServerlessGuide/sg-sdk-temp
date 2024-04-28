@@ -2,8 +2,9 @@
 name = "sg-sdk-inner"
 version = "0.0.1"
 edition = "2021"
-repository = "git@github.com:ServerlessGuide/sg-sdk-temp/sg-sdk-inner.git"
+repository = "https://github.com/ServerlessGuide/sg-sdk-temp.git"
 description = "sg sdk"
+license = "MIT OR Apache-2.0"
 
 [lib]
 name = "sg_sdk_inner"
@@ -21,15 +22,15 @@ lazy_static = { version = "1.4" }
 bevy_reflect = { version = "0.12" }
 async-trait = { version = "0.1" }
 pipe-trait = { version = "0.4" }
-dapr = { git = "https://github.com/TaurusM/dapr-rust-sdk.git", branch = "main" }
+dapr = { git = "https://github.com/TaurusM/dapr-rust-sdk.git", branch = "main", version = "*" }
 downcast-rs = { version = "1.2" }
-prost-types = { git = "https://github.com/TaurusM/prost.git", branch = "main", package = "prost-types" }
-prost = { git = "https://github.com/TaurusM/prost.git", branch = "main" }
-tonic = { git = "https://github.com/TaurusM/tonic.git", branch = "main" }
+prost-types = { git = "https://github.com/TaurusM/prost.git", branch = "main", package = "prost-types", version = "*" }
+prost = { git = "https://github.com/TaurusM/prost.git", branch = "main", version = "*" }
+tonic = { git = "https://github.com/TaurusM/tonic.git", branch = "main", version = "*" }
 futures-util = { version = "0.3", features = ["sink", "std"] }
-rbs = { git = "https://github.com/TaurusM/rbatis.git", branch = "main", package = "rbs" }
-rbatis = { git = "https://github.com/TaurusM/rbatis.git", branch = "main" }
-rbatis-macro-driver = { git = "https://github.com/TaurusM/rbatis.git", branch = "main", package = "rbatis-macro-driver" }
+rbs = { git = "https://github.com/TaurusM/rbatis.git", branch = "main", package = "rbs", version = "*" }
+rbatis = { git = "https://github.com/TaurusM/rbatis.git", branch = "main", version = "*" }
+rbatis-macro-driver = { git = "https://github.com/TaurusM/rbatis.git", branch = "main", package = "rbatis-macro-driver", version = "*" }
 sqlparser = { version = "0.40" }
 base64 = { version = "0.21" }
 hex = { version = "0.4" }
@@ -43,7 +44,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 mime = { version = "0.3.17" }
 multer = { version = "3.0.0" }
 tokio-util = { version = "0.7" }
-sg-sdk-macro = { path = "../sg-sdk-macro" }
+sg-sdk-macro = { path = "../sg-sdk-macro", version = "*"}
 
 
 [profile.release]
