@@ -66,7 +66,10 @@ lazy_static! {
     pub static ref DAPR_CONFIG: DaprConfig = {
         match env::var("DAPR_CONFIG") {
             Ok(val) => match serde_json::from_str::<DaprConfig>(&val) {
-                Ok(v) => v,
+                Ok(v) => {
+                    info!("dapr config from env: {:?}", v);
+                    v
+                }
                 Err(err) => {
                     error!("env DAPR_CONFIG format error: {}", err);
                     panic!("init DAPR_CONFIG error!")
@@ -120,7 +123,7 @@ lazy_static! {
             panic!("init envs error!")
         }
         if let None = envs.get("DAPR_HOST") {
-            error!("Important!!! env {} not set! will use localhost default.", "DAPR_HOST");
+            warn!("Important!!! env {} not set! will use localhost default.", "DAPR_HOST");
             envs.insert(String::from("DAPR_HOST"), String::from("localhost"));
         }
         if let None = envs.get("POD_NAMESPACE") {

@@ -105,7 +105,7 @@ impl ResponseError {
 }
 
 pub async fn err_resolve(err: Box<dyn std::error::Error + Send + Sync>) -> Response<Either<body::Body, body::BodySt>> {
-    debug!(
+    error!(
         "============================handle finish with error============================\nend time: {}\n{:#?}",
         utc_timestamp(),
         err
@@ -288,7 +288,7 @@ pub async fn gen_resp_ok<T: DaprBody + Serialize + 'static + ModelTrait + prost:
         let stream_body = StreamBody::new(reader_stream.map_ok(Frame::data)).boxed();
         let resp = response_builder.body(Either::Right(body::stream_body(stream_body))).unwrap();
 
-        debug!(
+        info!(
             "============================handle finish OK============================\nend time: {}",
             utc_timestamp()
         );
@@ -302,7 +302,7 @@ pub async fn gen_resp_ok<T: DaprBody + Serialize + 'static + ModelTrait + prost:
         let json = serde_json::to_string(&resp_body).unwrap();
         let resp = response_builder.body(Either::Left(body::bytes(json.as_bytes().to_vec()))).unwrap();
 
-        debug!(
+        info!(
             "============================handle finish OK============================\nend time: {}",
             utc_timestamp()
         );
@@ -340,6 +340,7 @@ impl URI {
 }
 
 pub async fn insert_uri(uri: URI) -> HttpResult<()> {
+    info!("set uri: {:?}", uri);
     let mut uris = URIS.write().await;
     match uris.insert(uri.name().to_string(), uri.clone()) {
         None => {}
@@ -351,6 +352,7 @@ pub async fn insert_uri(uri: URI) -> HttpResult<()> {
         }
     };
 
+    info!("set uri regex map: {:?}", uri);
     let mut uri_regex_map = URI_REGEX_MAP.write().await;
     uri_regex_map.insert(uri.clone(), regex::Regex::new(uri.path())?);
 
@@ -388,6 +390,7 @@ impl BizResult<'static> {
 }
 
 pub async fn insert_biz_result(biz_res: BizResult<'static>) -> HttpResult<()> {
+    info!("set biz result: {:?}", biz_res);
     let mut biz_result_map = BIZ_RESULT_MAP.write().await;
     match biz_result_map.insert(biz_res.name(), biz_res) {
         None => {}
@@ -416,6 +419,8 @@ pub async fn insert_income_param(uri: URI, params: Vec<(String, String, ParamFro
         );
     }
 
+    info!("set income params: {:?}", interface_params);
+
     let mut income_param_map = INCOME_PARAM_MAP.write().await;
 
     match income_param_map.insert(uri.name().to_string(), ExtraParamMap { params: interface_params }) {
@@ -432,6 +437,7 @@ pub async fn insert_income_param(uri: URI, params: Vec<(String, String, ParamFro
 }
 
 pub async fn set_internal_auth_tag(tag: &str) -> HttpResult<()> {
+    info!("set internal auth tag: {:?}", tag);
     *INTERNAL_AUTH_TAG.write().await = match tag.is_empty() {
         true => {
             return Err(Box::new(ResponseError {
@@ -448,6 +454,7 @@ pub async fn set_internal_auth_tag(tag: &str) -> HttpResult<()> {
 pub async fn set_skip_auth_uri(uri: URI) -> HttpResult<()> {
     let mut skip_ifs = SKIP_AUTH_IFS.write().await;
 
+    info!("set skip auth uri: {:?}", uri);
     skip_ifs.push(uri.name().to_string());
 
     Ok(())
@@ -456,7 +463,6 @@ pub async fn set_skip_auth_uri(uri: URI) -> HttpResult<()> {
 pub async fn uri_match(req_path: &str, req_method: Method) -> HttpResult<URI> {
     let uri_regex_map = URI_REGEX_MAP.read().await;
     for (uri, regex) in uri_regex_map.iter() {
-        info!("registered uri: {:?}", uri);
         if regex.is_match(req_path) && uri.method() == req_method {
             return Ok(uri.to_owned());
         }
@@ -582,7 +588,7 @@ pub async fn parse_params(req: Request<Incoming>) -> HttpResult<Params> {
         params.body = Some(body_bytes);
     }
 
-    debug!(
+    info!(
         "============================accept param============================\nstart time: {}\n{:?}",
         utc_timestamp(),
         params
