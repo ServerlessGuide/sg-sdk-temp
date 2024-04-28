@@ -17,17 +17,17 @@ validator_derive = { version = "0.16" }
 lazy_static = { version = "1.4" }
 bevy_reflect = { version = "0.12" }
 pipe-trait = { version = "0.4" }
-prost-types = { git = "https://github.com/TaurusM/prost.git", branch = "main", package = "prost-types" }
-prost = { git = "https://github.com/TaurusM/prost.git", branch = "main" }
-rbs = { git = "https://github.com/TaurusM/rbatis.git", branch = "main", package = "rbs" }
-rbatis = { git = "https://github.com/TaurusM/rbatis.git", branch = "main" }
-rbatis-macro-driver = { git = "https://github.com/TaurusM/rbatis.git", branch = "main", package = "rbatis-macro-driver" }
+prost-types = { git = "https://github.com/TaurusM/prost.git", rev = "2e1602874493e9ed1ffaaf2e450be52c0f11dc32", package = "prost-types", version = "*" }
+prost = { git = "https://github.com/TaurusM/prost.git", rev = "2e1602874493e9ed1ffaaf2e450be52c0f11dc32" }
+rbs = { git = "https://github.com/TaurusM/rbatis.git", rev = "5428a0238fce87cd9b568ae569f7c826338fe844", package = "rbs", version = "*" }
+rbatis = { git = "https://github.com/TaurusM/rbatis.git", rev = "5428a0238fce87cd9b568ae569f7c826338fe844", version = "*" }
+rbatis-macro-driver = { git = "https://github.com/TaurusM/rbatis.git", rev = "5428a0238fce87cd9b568ae569f7c826338fe844", package = "rbatis-macro-driver", version = "*" }
 async_once = { version = "0.2" }
 http-body-util = { version = "0.1" }
 tracing = { version = "0.1", features = ["attributes"] }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-tonic = { git = "https://github.com/TaurusM/tonic.git", branch = "main" }
-dapr = { git = "https://github.com/TaurusM/dapr-rust-sdk.git", branch = "main" }
+tonic = { git = "https://github.com/TaurusM/tonic.git", rev = "d0985384c9f05e59c400a338512ec174adbb0a62", version = "*" }
+dapr = { git = "https://github.com/TaurusM/dapr-rust-sdk.git", rev = "c1d95b6154a6a18b8e616fb04e96e011f7c52053", version = "*" }
 sg-sdk-inner = { path = "../sg-sdk-inner" }
 sg-sdk-macro = { path = "../sg-sdk-macro" }
 
