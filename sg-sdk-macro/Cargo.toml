@@ -2,8 +2,8 @@
 name = "sg-sdk-macro"
 version = "0.0.1"
 edition = "2021"
-repository = "git@github.com:ServerlessGuide/sg-sdk-temp/sg-sdk-macro.git"
-description = "sg sdk"
+repository = "https://github.com/ServerlessGuide/sg-sdk-temp.git"
+description = "sg sdk macro"
 license = "MIT OR Apache-2.0"
 
 [lib]
