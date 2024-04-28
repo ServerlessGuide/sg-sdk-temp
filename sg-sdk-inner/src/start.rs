@@ -78,9 +78,8 @@ pub async fn start_http_grpc<OneDispatcher: HttpRequestDispatcherTrait + GrpcReq
     http_port: u16,
     grpc_port: u16,
 ) -> HttpResult<()> {
-    let _ = join(start_http::<OneDispatcher>(http_port), start_grpc::<OneDispatcher>(grpc_port)).await;
-
     info!("function started OK, now for serving...");
+    let _ = join(start_http::<OneDispatcher>(http_port), start_grpc::<OneDispatcher>(grpc_port)).await;
 
     Ok(())
 }
