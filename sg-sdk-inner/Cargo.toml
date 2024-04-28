@@ -22,7 +22,7 @@ lazy_static = { version = "1.4" }
 bevy_reflect = { version = "0.12" }
 async-trait = { version = "0.1" }
 pipe-trait = { version = "0.4" }
-dapr = { git = "https://github.com/TaurusM/dapr-rust-sdk.git", rev = "7c522a5d4b9c5935f57c4379a9c78b1d583cc143" }
+dapr = { git = "https://github.com/TaurusM/dapr-rust-sdk.git", rev = "7f661c4e7c17ceffcad872fcbfffaf998a0b5400" }
 downcast-rs = { version = "1.2" }
 prost-types = { git = "https://github.com/TaurusM/prost.git", package = "prost-types", rev = "2e1602874493e9ed1ffaaf2e450be52c0f11dc32" }
 prost = { git = "https://github.com/TaurusM/prost.git", rev = "2e1602874493e9ed1ffaaf2e450be52c0f11dc32" }
