@@ -76,34 +76,6 @@ impl std::error::Error for ResponseError {
     }
 }
 
-impl ResponseError {
-    pub fn from_str_ref_err(err: &str) -> Self {
-        ResponseError {
-            biz_res: IMPLICIT_RESPONSE_ERROR.name(),
-            message: Some(format!("{}: {}", IMPLICIT_RESPONSE_ERROR.message(), err.to_string())),
-        }
-    }
-
-    pub fn from_string_err(err: String) -> Self {
-        ResponseError {
-            biz_res: IMPLICIT_RESPONSE_ERROR.name(),
-            message: Some(format!("{}: {}", IMPLICIT_RESPONSE_ERROR.message(), err)),
-        }
-    }
-
-    pub fn from_box_err(err: Box<dyn std::error::Error + Send + Sync>) -> Self {
-        if err.is::<ResponseError>() {
-            let respnse_err = err.downcast_ref::<ResponseError>().unwrap();
-            respnse_err.to_owned()
-        } else {
-            ResponseError {
-                biz_res: IMPLICIT_RESPONSE_ERROR.name(),
-                message: Some(format!("{}: {}", IMPLICIT_RESPONSE_ERROR.message(), err.to_string())),
-            }
-        }
-    }
-}
-
 pub async fn err_resolve(err: Box<dyn std::error::Error + Send + Sync>) -> Response<Either<body::Body, body::BodySt>> {
     error!(
         "============================handle finish with error============================\nend time: {}\n{:#?}",
@@ -134,13 +106,20 @@ pub async fn err_resolve(err: Box<dyn std::error::Error + Send + Sync>) -> Respo
                     },
                 );
             } else {
+                let implicit_err = match BizResult::from(IMPLICIT_RESPONSE_ERROR.name()).await {
+                    Ok(v) => v,
+                    Err(_) => {
+                        error!("Important!!! IMPLICIT_RESPONSE_ERROR not found");
+                        panic!("Important!!! IMPLICIT_RESPONSE_ERROR not found");
+                    }
+                };
                 return gen_resp(
-                    IMPLICIT_RESPONSE_ERROR.status_code(),
+                    implicit_err.status_code(),
                     Res::<String> {
-                        code: IMPLICIT_RESPONSE_ERROR.biz_code(),
+                        code: implicit_err.biz_code(),
                         message: match &respnse_err.message {
-                            None => IMPLICIT_RESPONSE_ERROR.message(),
-                            Some(message) => format!("{}: {}", IMPLICIT_RESPONSE_ERROR.message(), message),
+                            None => implicit_err.message(),
+                            Some(message) => format!("{}: {}", implicit_err.message(), message),
                         },
                         result: None,
                     },
@@ -168,11 +147,18 @@ pub async fn err_resolve(err: Box<dyn std::error::Error + Send + Sync>) -> Respo
             )
         }
     } else {
+        let implicit_err = match BizResult::from(IMPLICIT_RESPONSE_ERROR.name()).await {
+            Ok(v) => v,
+            Err(_) => {
+                error!("Important!!! IMPLICIT_RESPONSE_ERROR not found");
+                panic!("Important!!! IMPLICIT_RESPONSE_ERROR not found");
+            }
+        };
         gen_resp(
-            IMPLICIT_RESPONSE_ERROR.status_code(),
+            implicit_err.status_code(),
             Res::<String> {
-                code: IMPLICIT_RESPONSE_ERROR.biz_code(),
-                message: format!("{}: {}", IMPLICIT_RESPONSE_ERROR.message(), err.to_string()),
+                code: implicit_err.biz_code(),
+                message: format!("{}: {}", implicit_err.message(), err.to_string()),
                 result: None,
             },
         )
