@@ -395,6 +395,7 @@ pub async fn insert_biz_result(biz_res: BizResult<'static>) -> HttpResult<()> {
     match biz_result_map.insert(biz_res.name(), biz_res) {
         None => {}
         Some(_) => {
+            error!("biz result is exist: {:?}", biz_res);
             return Err(Box::new(ResponseError {
                 biz_res: format!("biz result is exist: {}", biz_res.name()),
                 message: None,

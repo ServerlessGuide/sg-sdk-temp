@@ -155,7 +155,7 @@ pub async fn handle_http<T: Serialize + prost::Message + ModelTrait + Default + 
     params: &Params,
 ) -> HttpResult<Response<Either<body::Body, body::BodySt>>> {
     match http_res {
-        Ok((if_res, response_header)) => Ok(util::gen_resp_ok(OK, if_res, response_header, &params).await),
+        Ok((if_res, response_header)) => Ok(util::gen_resp_ok(BizResult::from(OK.name()).await?, if_res, response_header, &params).await),
         Err(err) => Ok(util::err_resolve(err).await),
     }
 }
