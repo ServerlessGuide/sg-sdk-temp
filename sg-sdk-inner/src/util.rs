@@ -834,8 +834,8 @@ pub async fn params_to_model<
     let exec = HashMap::<String, (DaprRequest, DaprResponse, Option<Vec<Box<dyn DaprBody>>>)>::new();
 
     if !income_param_exist {
-        debug!("input_param model: {:#?}", input_param);
-        debug!("input_params model: {:#?}", input_params);
+        debug!("input_param model: {:?}", input_param);
+        debug!("input_params model: {:?}", input_params);
 
         return Ok(ContextWrapper {
             saga_id,
@@ -867,8 +867,8 @@ pub async fn params_to_model<
         set_input_param(param_map, &params, &mut input_param, &form_data)?;
     }
 
-    debug!("input_param model: {:#?}", input_param);
-    debug!("input_params model: {:#?}", &input_params);
+    debug!("input_param model: {:?}", input_param);
+    debug!("input_params model: {:?}", &input_params);
 
     Ok(ContextWrapper {
         saga_id,

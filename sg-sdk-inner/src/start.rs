@@ -19,7 +19,7 @@ use tonic::{
     transport::Server,
     Status,
 };
-use tracing::{error, info};
+use tracing::{debug, error, info};
 
 use crate::{
     body,
@@ -110,7 +110,7 @@ pub struct GrpcService<GrpcDispatcher: GrpcRequestDispatcherTrait + Send + Copy 
 #[tonic::async_trait]
 impl<GrpcDispatcher: GrpcRequestDispatcherTrait + Send + Copy + Sync> AppCallback for GrpcService<GrpcDispatcher> {
     async fn on_invoke(&self, request: tonic::Request<InvokeRequest>) -> GrpcResult<tonic::Response<InvokeResponse>> {
-        println!("grpc request: {:?}", &request);
+        debug!("grpc request: {:?}", &request);
 
         let params = parse_params_grpc(request).await;
         let mut params = match params {

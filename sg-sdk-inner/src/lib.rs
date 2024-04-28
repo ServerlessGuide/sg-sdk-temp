@@ -3,6 +3,7 @@ use std::env;
 
 use tokio::sync::RwLock;
 use tonic::Status;
+use tracing::{error, info, warn};
 
 use crate::{
     model::{DaprConfig, ExtraParamMap, FunctionContextV1beta1, FunctionContextV1beta2},
@@ -67,12 +68,12 @@ lazy_static! {
             Ok(val) => match serde_json::from_str::<DaprConfig>(&val) {
                 Ok(v) => v,
                 Err(err) => {
-                    eprintln!("env DAPR_CONFIG format error: {}", err);
+                    error!("env DAPR_CONFIG format error: {}", err);
                     panic!("init DAPR_CONFIG error!")
                 }
             },
             Err(_) => {
-                eprintln!("env DAPR_CONFIG not found");
+                error!("env DAPR_CONFIG not found");
                 panic!("init DAPR_CONFIG error!")
             }
         }
@@ -82,12 +83,12 @@ lazy_static! {
             Ok(val) => match serde_json::from_str::<FunctionContextV1beta1>(&val) {
                 Ok(v) => v,
                 Err(_) => {
-                    eprintln!("env FUNC_CONTEXT format error");
+                    warn!("env FUNC_CONTEXT format error");
                     panic!("init FUNC_CONTEXT error!")
                 }
             },
             Err(_) => {
-                eprintln!("env FUNC_CONTEXT not found");
+                warn!("env FUNC_CONTEXT not found");
                 panic!("init FUNC_CONTEXT error!")
             }
         }
@@ -97,12 +98,12 @@ lazy_static! {
             Ok(val) => match serde_json::from_str::<FunctionContextV1beta2>(&val) {
                 Ok(v) => v,
                 Err(_) => {
-                    eprintln!("env FUNC_CONTEXT_V1BETA2 format error");
+                    warn!("env FUNC_CONTEXT_V1BETA2 format error");
                     panic!("init FUNC_CONTEXT_V1BETA2 error!")
                 }
             },
             Err(_) => {
-                eprintln!("env FUNC_CONTEXT_V1BETA2 not found");
+                warn!("env FUNC_CONTEXT_V1BETA2 not found");
                 panic!("init FUNC_CONTEXT_V1BETA2 error!")
             }
         }
@@ -115,19 +116,19 @@ lazy_static! {
         }
 
         if let None = envs.get("FUNC_CONTEXT") {
-            eprintln!("Important!!! env {} not set!", "FUNC_CONTEXT");
+            error!("Important!!! env {} not set!", "FUNC_CONTEXT");
             panic!("init envs error!")
         }
         if let None = envs.get("DAPR_HOST") {
-            println!("Important!!! env {} not set! will use localhost default.", "DAPR_HOST");
+            error!("Important!!! env {} not set! will use localhost default.", "DAPR_HOST");
             envs.insert(String::from("DAPR_HOST"), String::from("localhost"));
         }
         if let None = envs.get("POD_NAMESPACE") {
-            eprintln!("Important!!! env {} not set!", "POD_NAMESPACE");
+            error!("Important!!! env {} not set!", "POD_NAMESPACE");
             panic!("init envs error!")
         }
 
-        println!("envs:{:?}", envs);
+        info!("envs:{:?}", envs);
 
         envs
     };

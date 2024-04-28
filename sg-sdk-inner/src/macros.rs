@@ -101,7 +101,7 @@ macro_rules! generate_http_dispatcher {
                     )*
 
                     _ => {
-                        eprintln!("[request begin] error: uri match nothing");
+                        error!("[request begin] error: uri match nothing");
                         Ok(util::gen_resp(
                             URI_NOT_MATCH.status_code(),
                             Res::<String> {
@@ -128,7 +128,7 @@ macro_rules! generate_grpc_dispatcher {
                     )*
 
                     _ => {
-                        eprintln!("[request begin] error: uri match nothing");
+                        error!("[request begin] error: uri match nothing");
                         return GrpcResult::Err(tonic::Status::internal(URI_NOT_MATCH.message()));
                     }
                 }

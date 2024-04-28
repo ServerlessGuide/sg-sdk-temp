@@ -10,9 +10,9 @@ pub fn derive_model_validator(input: proc_macro::TokenStream) -> proc_macro::Tok
         impl Validator for #name {
             fn checkout(&self) -> std::result::Result<usize, Box<dyn std::error::Error + Send + Sync>> {
                 let checkout = self.validate();
-                println!("checkout: {:#?}", checkout);
+                info!("checkout: {:?}", checkout);
                 if let Err(err) = checkout {
-                    println!("err: {}", err.to_string());
+                    error!("err: {}", err.to_string());
                     return Err(Box::new(ResponseError{biz_res: String::from("FIELD_VALIDATE_FAIL"), message: Some(err.to_string())}));
                 }
                 Ok(0)

@@ -721,7 +721,7 @@ pub async fn invoke_binding_grpc_sql<I: ModelTrait + prost::Message + Default, O
                 .invoke_binding(config.name.clone(), config.data.clone(), metadata, config.operation.to_string())
                 .await;
 
-            debug!("invoke dapr binding sql response: {:#?}", response);
+            debug!("invoke dapr binding sql response: {:?}", response);
 
             if let Err(err) = response {
                 return Err(err_boxed_full_string(DAPR_REQUEST_FAIL, err.to_string()));
@@ -891,7 +891,7 @@ pub async fn invoke_binding_http_sql<I: ModelTrait + prost::Message + Default, O
 
             let response = hyper_request(url, Method::POST, Some(data), None).await;
 
-            debug!("invoke dapr binding sql response: {:#?}", response);
+            debug!("invoke dapr binding sql response: {:?}", response);
 
             if let Err(err) = response {
                 return Err(err_boxed_full_string(DAPR_REQUEST_FAIL, err.to_string()));
