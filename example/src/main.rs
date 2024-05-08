@@ -85,11 +85,11 @@ async fn env_prepare(params: &Params) -> HttpResult<(IfRes<EmptyOutPut>, HashMap
 async fn main() -> HttpResult<()> {
     init_log();
 
-    ForConfig::insert_uri().await?;
-    ForConfig::insert_biz_result().await?;
-    ForConfig::insert_income_param().await?;
-    // ForConfig::set_skip_auth_uri().await?;
-    ForConfig::set_internal_auth_tag().await?;
+    ForConfig::insert_uri().await?; // 和 uri! 成对出现
+    ForConfig::insert_biz_result().await?; // #[biz_result_handler
+    ForConfig::insert_income_param().await?; // income_param!
+    // ForConfig::set_skip_auth_uri().await?; // skip_auth_uri!
+    ForConfig::set_internal_auth_tag().await?; // internal_auth_tag!
 
     start_http_grpc::<ForConfig>(8080, 8088).await
 }
@@ -112,7 +112,7 @@ income_param! {
     (ENV_PREPARE, [(app_id, 2, Path, Number, true)]);
 }
 
-#[biz_result_handler(1002,<CUSTOM_BIZ_RES, 500, 41, "custom biz result message">)]
-#[uri_handler(QUERY_BY_APP_ID => query_by_app_id, INSERT => insert, ENV_PREPARE => env_prepare)]
-#[derive(Copy, Clone)]
+#[biz_result_handler(1002,<CUSTOM_BIZ_RES, 500, 41, "custom biz result message">)] // 依据业务情况， 100241
+#[uri_handler(QUERY_BY_APP_ID => query_by_app_id, INSERT => insert, ENV_PREPARE => env_prepare)] // 固定
+#[derive(Copy, Clone)] // 固定
 struct ForConfig();
